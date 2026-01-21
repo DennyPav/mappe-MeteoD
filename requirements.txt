@@ -6,6 +6,7 @@ ecmwf-opendata
 cfgrib
 pytz
 scipy
+geopandas
 pandas
 requests
 beautifulsoup4
