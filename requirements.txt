@@ -10,3 +10,5 @@ geopandas
 pandas
 requests
 beautifulsoup4
+dask
+dask[array]
