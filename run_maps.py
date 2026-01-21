@@ -223,7 +223,7 @@ def add_title(ax, main_title, valid_dt, lead_str):
     valid_txt_2 = rf"\bf{{{valid_str_2} {lead_str}}}"
     title = (rf"$\bf{{{main_title}}}$"
              f"\n$\\bf{{ECMWF\\ IFS}}$ run: {run_dt.strftime('%d/%m/%Y')} {run_hour:02d}z "
-             f"| validità: ${valid_txt}$ ${valid_txt_2}$ IT")
+             f"| validità: ${valid_txt}$ ${valid_txt_2}$")
     ax.set_title(title)
 
 # ==================== MAIN LOOP ====================
