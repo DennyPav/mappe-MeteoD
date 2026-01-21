@@ -1,0 +1,85 @@
+name: ECMWF Maps Upload (Drive ID)
+
+on:
+  schedule:
+    # 8:00 UTC e 20:00 UTC
+    - cron: "0 8 * * *"
+    - cron: "0 20 * * *"
+  workflow_dispatch:
+
+jobs:
+  run-mappe:
+    runs-on: ubuntu-latest
+    env:
+      LC_ALL: it_IT.UTF-8
+      LANG: it_IT.UTF-8
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --- 1. SETUP AMBIENTE ---
+      
+      # IMPORTANTE: cfgrib richiede queste librerie di sistema per leggere i grib
+      - name: Install System Dependencies (ecCodes)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeccodes0 libeccodes-dev
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # --- 2. SETUP RCLONE ---
+      
+      - name: Install rclone
+        run: curl https://rclone.org/install.sh | sudo bash
+
+      - name: Setup rclone config from secret
+        env:
+          RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
+        run: |
+          mkdir -p /home/runner/.config/rclone
+          echo "${RCLONE_CONFIG}" > /home/runner/.config/rclone/rclone.conf
+          chmod 600 /home/runner/.config/rclone/rclone.conf
+
+      # --- 3. ESECUZIONE SCRIPT ---
+
+      - name: Run Python Generation Script
+        run: |
+          # Esegue lo script che crea la cartella ./mappe_output
+          python run_maps.py
+
+      # --- 4. UPLOAD SU DRIVE ---
+      
+      - name: Upload to Google Drive
+        run: |
+          # Identifica automaticamente il nome del remote dal file di configurazione
+          REMOTE_NAME=$(grep -oP '^\[\K[^\]]+' /home/runner/.config/rclone/rclone.conf | head -n 1)
+          echo "Remote trovato: $REMOTE_NAME"
+
+          # La cartella creata dallo script Python
+          LOCAL_DIR="./mappe_output"
+
+          # L'ID della cartella Drive fornito
+          TARGET_FOLDER_ID="1fEDgCEfFn-pMH_YJS9HxOUBQxnU1wq4F"
+
+          echo "Inizio upload su cartella ID: $TARGET_FOLDER_ID"
+
+          # Upload con rclone:
+          # --drive-root-folder-id: Forza la destinazione in quella specifica cartella ID
+          # --include "*.png": Carica solo le immagini finali, ignorando i file .grib2 temporanei
+          
+          rclone copy "$LOCAL_DIR" "${REMOTE_NAME}:" \
+            --drive-root-folder-id "$TARGET_FOLDER_ID" \
+            --include "*.png" \
+            --transfers 8 \
+            --verbose
+
+          echo "✅ Upload completato!"
