@@ -6,3 +6,6 @@ ecmwf-opendata
 cfgrib
 pytz
 scipy
+pandas
+requests
+beautifulsoup4
