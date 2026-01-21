@@ -59,25 +59,25 @@ jobs:
       # --- 4. UPLOAD SU DRIVE ---
       
       - name: Upload to Google Drive
+        env:
+          # Leggiamo il secret e lo salviamo in una variabile d'ambiente
+          DRIVE_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
-          # Identifica automaticamente il nome del remote dal file di configurazione
+          # Identifica automaticamente il nome del remote
           REMOTE_NAME=$(grep -oP '^\[\K[^\]]+' /home/runner/.config/rclone/rclone.conf | head -n 1)
-          echo "Remote trovato: $REMOTE_NAME"
-
-          # La cartella creata dallo script Python
+          
           LOCAL_DIR="./mappe_output"
 
-          # L'ID della cartella Drive fornito
-          TARGET_FOLDER_ID="1fEDgCEfFn-pMH_YJS9HxOUBQxnU1wq4F"
+          # Controllo di sicurezza (opzionale ma consigliato)
+          if [ -z "$DRIVE_ID" ]; then
+            echo "❌ Errore: Il secret GDRIVE_FOLDER_ID non è impostato!"
+            exit 1
+          fi
 
-          echo "Inizio upload su cartella ID: $TARGET_FOLDER_ID"
+          echo "Inizio upload..."
 
-          # Upload con rclone:
-          # --drive-root-folder-id: Forza la destinazione in quella specifica cartella ID
-          # --include "*.png": Carica solo le immagini finali, ignorando i file .grib2 temporanei
-          
           rclone copy "$LOCAL_DIR" "${REMOTE_NAME}:" \
-            --drive-root-folder-id "$TARGET_FOLDER_ID" \
+            --drive-root-folder-id "$DRIVE_ID" \
             --include "*.png" \
             --transfers 8 \
             --verbose
