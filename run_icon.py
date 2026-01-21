@@ -327,7 +327,7 @@ def finalize_plot(fig, ax, cf, run_dt, valid_dt, title_bold, title_normal, cbar_
         diff_hours = int((valid_dt - run_dt).total_seconds() / 3600)
         day_str = valid_dt_loc.strftime(r"%d/%m/%Y")
         hour_str = valid_dt_loc.strftime(r"%H")
-        valid_str_final = fr"{day_str}\ {hour_str}\ (+{diff_hours}h) IT"
+        valid_str_final = fr"{day_str}\ {hour_str}\ (+{diff_hours}h)"
 
     title_bold_escaped = title_bold.replace(" ", r"\ ")
     full_title = fr"$\bf{{{title_bold_escaped}}}$ {title_normal}"
