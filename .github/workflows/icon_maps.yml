@@ -1,0 +1,84 @@
+name: ICON Maps Upload
+
+on:
+  schedule:
+    # 03:45 UTC e 14:45 UTC
+    - cron: "45 3 * * *"
+    - cron: "45 14 * * *"
+  workflow_dispatch:
+
+jobs:
+  run-icon:
+    runs-on: ubuntu-latest
+    env:
+      LC_ALL: it_IT.UTF-8
+      LANG: it_IT.UTF-8
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --- 1. SETUP AMBIENTE ---
+      
+      - name: Install System Dependencies (ecCodes)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeccodes0 libeccodes-dev
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Installa le dipendenze specifiche per ICON
+          pip install numpy pandas xarray requests beautifulsoup4 scipy matplotlib cartopy ecmwf-opendata cfgrib pytz
+
+      # --- 2. SETUP RCLONE ---
+      
+      - name: Install rclone
+        run: curl https://rclone.org/install.sh | sudo bash
+
+      - name: Setup rclone config from secret
+        env:
+          RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
+        run: |
+          mkdir -p /home/runner/.config/rclone
+          echo "${RCLONE_CONFIG}" > /home/runner/.config/rclone/rclone.conf
+          chmod 600 /home/runner/.config/rclone/rclone.conf
+
+      # --- 3. ESECUZIONE SCRIPT ---
+
+      - name: Run ICON Generation Script
+        run: |
+          # Esegue lo script salvato nel repo come run_icon.py
+          python run_icon.py
+
+      # --- 4. UPLOAD SU DRIVE ---
+      
+      - name: Upload to Google Drive
+        env:
+          # Leggiamo il nuovo secret specifico per la cartella ICON
+          ICON_DRIVE_ID: ${{ secrets.ICON_GDRIVE_ID }}
+        run: |
+          REMOTE_NAME=$(grep -oP '^\[\K[^\]]+' /home/runner/.config/rclone/rclone.conf | head -n 1)
+          
+          # Cartella di output definita nello script Python
+          LOCAL_DIR="./icon_output"
+
+          if [ -z "$ICON_DRIVE_ID" ]; then
+            echo "❌ Errore: Il secret ICON_GDRIVE_ID non è impostato!"
+            exit 1
+          fi
+
+          echo "Inizio upload su cartella ID: $ICON_DRIVE_ID"
+
+          rclone copy "$LOCAL_DIR" "${REMOTE_NAME}:" \
+            --drive-root-folder-id "$ICON_DRIVE_ID" \
+            --include "*.png" \
+            --transfers 8 \
+            --verbose
+
+          echo "✅ Upload completato!"
