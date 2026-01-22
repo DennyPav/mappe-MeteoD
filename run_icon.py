@@ -508,22 +508,33 @@ for idx, day in enumerate(days):
     t_day = t2m.sel(time=slice(day, day + np.timedelta64(1,'D') - np.timedelta64(1,'ns')))
     
     if t_day.sizes['time'] > 0:
-        # TMIN
+        # Definizione livelli contorni (ogni 4 gradi)
+        levs_lines = np.arange(-48, 52, 4)
+
+        # --- TMIN ---
         t_min_val = t_day.min("time")
         fig, ax = setup_map()
         cf = ax.contourf(t_min_val.longitude, t_min_val.latitude, t_min_val, levels=boundaries_t, cmap=cmap_t, norm=norm_t, extend="both")
-        levs_lines = np.arange(-48, 52, 8)
-        ax.contour(t_min_val.longitude, t_min_val.latitude, t_min_val, levels=levs_lines, colors="#555555", linewidths=0.1)
-        finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Temperatura Minima", "Giornaliera", "Tmin (°C)", explicit_ticks=ticks_t_lines)
+        
+        # Salva l'oggetto contour in 'cs' per poterlo etichettare
+        cs = ax.contour(t_min_val.longitude, t_min_val.latitude, t_min_val, levels=levs_lines, colors="#555555", linewidths=0.3)
+        ax.clabel(cs, inline=True, fontsize=7, fmt='%d') # Aggiunge etichette piccole
+        
+        finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Temperatura Minima", "Giornaliera", "Temperatura (°C)", explicit_ticks=ticks_t_lines)
         save_plot(os.path.join(OUTDIR, f"TMIN_DAY_{day_idx_str}.png"))
         
-        # TMAX
+        # --- TMAX ---
         t_max_val = t_day.max("time")
         fig, ax = setup_map()
         cf = ax.contourf(t_max_val.longitude, t_max_val.latitude, t_max_val, levels=boundaries_t, cmap=cmap_t, norm=norm_t, extend="both")
-        ax.contour(t_max_val.longitude, t_max_val.latitude, t_max_val, levels=levs_lines, colors="#555555", linewidths=0.1)
-        finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Temperatura Massima", "Giornaliera", "Tmax (°C)", explicit_ticks=ticks_t_lines)
+        
+        # Salva l'oggetto contour in 'cs' per poterlo etichettare
+        cs = ax.contour(t_max_val.longitude, t_max_val.latitude, t_max_val, levels=levs_lines, colors="#555555", linewidths=0.3)
+        ax.clabel(cs, inline=True, fontsize=7, fmt='%d') # Aggiunge etichette piccole
+        
+        finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Temperatura Massima", "Giornaliera", "Temperatura (°C)", explicit_ticks=ticks_t_lines)
         save_plot(os.path.join(OUTDIR, f"TMAX_DAY_{day_idx_str}.png"))
+
         
         # RAFFICA
         vmax_day = vmax_10m.sel(time=slice(day, day + np.timedelta64(1,'D') - np.timedelta64(1,'ns')))
