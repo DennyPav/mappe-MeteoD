@@ -3,45 +3,51 @@
 
 import os
 import sys
-# import warnings
+import warnings
+import matplotlib
+
+# --- 1. CONFIGURAZIONE BACKEND PER GITHUB ACTIONS ---
+# Forza backend non interattivo per evitare crash "headless"
+matplotlib.use('Agg')
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
 import requests
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-import geopandas as gpd  # <--- Assicurati che geopandas sia nel requirements.txt
+import geopandas as gpd
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta, timezone
 from scipy.ndimage import gaussian_filter
 from matplotlib.colors import ListedColormap, BoundaryNorm
 import pytz
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 
-# warnings.filterwarnings("ignore")
+# Filtra warning non critici per pulire il log di GitHub
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-# ==================== CONFIGURAZIONE PATH (GitHub Friendly) ====================
+# ==================== CONFIGURAZIONE PATH ====================
+# Percorsi relativi alla posizione dello script (funziona ovunque)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WORKDIR = os.path.join(BASE_DIR, "icon_data")
 OUTDIR = os.path.join(BASE_DIR, "icon_output")
-
-# Configurazione Shapefile (deve essere nella root del repo)
 SHP_PATH = os.path.join(BASE_DIR, "Reg01012025_g_WGS84.shp")
 
 os.makedirs(WORKDIR, exist_ok=True)
 os.makedirs(OUTDIR, exist_ok=True)
 
-print(f"📂 Output directory: {OUTDIR}")
-print(f"🗺️ Shapefile path: {SHP_PATH}")
+print(f"📂 Output directory: {OUTDIR}", flush=True)
+print(f"🗺️ Shapefile path: {SHP_PATH}", flush=True)
 
+# PARAMETRI FISICI
 DT_HOURS = 1.0          # Timestep modello
 MELT_RATE = 0.7         # mm/h fusione neve per °C > 0
 SNOW_TW_THRESH = 0.5    # Soglia wet-bulb passaggio pioggia/neve
 MAP_EXTENT = (5, 20, 35, 48)
 
-# TIMEZONE
+# TIMEZONE (Gestisce automaticamente Ora Solare/Legale)
 TZ_ROME = pytz.timezone('Europe/Rome')
 
 # ==================== PALETTE COLORI ====================
@@ -144,7 +150,7 @@ cmap_zt.set_under("none")
 norm_zt = BoundaryNorm(boundaries_zt, cmap_zt.N, clip=False)
 
 
-# ==================== GESTIONE TEMPO ====================
+# ==================== GESTIONE TEMPO RUN ====================
 def get_run_datetime_now_utc():
     now = datetime.now(timezone.utc)
     if now.hour < 4:
@@ -156,7 +162,7 @@ def get_run_datetime_now_utc():
 run_date, run_hour = get_run_datetime_now_utc()
 GRIB_DIR = os.path.join(WORKDIR, f"{run_date}{run_hour}")
 os.makedirs(GRIB_DIR, exist_ok=True)
-print(f"🔵 Run: {run_date} {run_hour} UTC")
+print(f"🔵 Run: {run_date} {run_hour} UTC", flush=True)
 
 run_datetime_obj = datetime.strptime(f"{run_date}{run_hour}", "%Y%m%d%H").replace(tzinfo=timezone.utc)
 
@@ -167,12 +173,12 @@ def download_icon(var, filter_str=None):
     try:
         r = requests.get(base, timeout=30)
         if r.status_code != 200:
-            print(f"⚠️ HTTP {r.status_code}")
+            print(f"⚠️ HTTP {r.status_code}", flush=True)
             return
         soup = BeautifulSoup(r.text, "html.parser")
         links = [a.get("href") for a in soup.find_all("a") if a.get("href", "").endswith(".grib")]
         if filter_str: links = [l for l in links if filter_str in l]
-        if not links: print("⚠️ Nessun file"); return
+        if not links: print("⚠️ Nessun file", flush=True); return
         
         c = 0
         for l in links:
@@ -184,8 +190,8 @@ def download_icon(var, filter_str=None):
                     with open(out, "wb") as f:
                         for chunk in rr.iter_content(8192): f.write(chunk)
                 c += 1
-        print(f"✅ {len(links)} file ({c} nuovi)")
-    except Exception as e: print(f"❌ {e}")
+        print(f"✅ {len(links)} file ({c} nuovi)", flush=True)
+    except Exception as e: print(f"❌ {e}", flush=True)
 
 
 dl_list = [("T_2M", None), ("TD_2M", None), ("TOT_PREC", None), ("PMSL", None),
@@ -193,10 +199,10 @@ dl_list = [("T_2M", None), ("TD_2M", None), ("TOT_PREC", None), ("PMSL", None),
            ("OMEGA", "700"), ("FI", "500"), ("U", "700"), ("V", "700"), ("VMAX_10M", None)]
 
 
-print("\n⬇️ Download...")
+print("\n⬇️ Download...", flush=True)
 for v, f in dl_list: download_icon(v, f)
 
-# ==================== UTILS CARICAMENTO ====================
+# ==================== UTILS CARICAMENTO XARRAY ====================
 def list_files(token):
     prefix = f"{token}_"
     flist = [os.path.join(GRIB_DIR, f) for f in os.listdir(GRIB_DIR) 
@@ -217,19 +223,19 @@ def to_forecast_time(da):
 
 def open_grib_safe(token, short_name_hint, extra_filter=None):
     files = list_files(token)
-    if not files: print(f"❌ Manca {token}"); sys.exit(1)
+    if not files: print(f"❌ Manca {token}", flush=True); sys.exit(1)
     filt = extra_filter if extra_filter else {}
     try:
         ds = xr.open_mfdataset(files, engine="cfgrib", combine="by_coords", backend_kwargs={"filter_by_keys": filt, "indexpath": ""})
         if short_name_hint in ds: return ds[short_name_hint]
         for c in ["prmsl", "msl", "pres", "meanSea"]:
-            if c in ds: print(f"⚠️ Uso '{c}' per {token}"); return ds[c]
+            if c in ds: print(f"⚠️ Uso '{c}' per {token}", flush=True); return ds[c]
         if len(ds.data_vars) == 1: return ds[list(ds.data_vars)[0]]
-        print(f"❌ Variabile {short_name_hint} non trovata in {token}"); sys.exit(1)
-    except Exception as e: print(f"❌ Errore {token}: {e}"); sys.exit(1)
+        print(f"❌ Variabile {short_name_hint} non trovata in {token}", flush=True); sys.exit(1)
+    except Exception as e: print(f"❌ Errore {token}: {e}", flush=True); sys.exit(1)
 
 # ==================== CARICAMENTO DATI ====================
-print("\n📂 Caricamento e Conversione Unità...")
+print("\n📂 Caricamento e Conversione Unità...", flush=True)
 t2m = to_forecast_time(open_grib_safe("T_2M", "2t")) - 273.15
 d2m = to_forecast_time(open_grib_safe("TD_2M", "2d")) - 273.15
 tp_raw = to_forecast_time(open_grib_safe("TOT_PREC", "tp"))
@@ -246,57 +252,25 @@ z500 = to_forecast_time(open_grib_safe("FI", "z", {"typeOfLevel": "isobaricInhPa
 u700 = to_forecast_time(open_grib_safe("U", "u", {"typeOfLevel": "isobaricInhPa", "level": 700}))
 v700 = to_forecast_time(open_grib_safe("V", "v", {"typeOfLevel": "isobaricInhPa", "level": 700}))
 
-# ==================== FIX ALLINEAMENTO TEMPORALE ====================
-print("🔧 Verifica e fix indici temporali...")
-
-def fix_time_index(da, ref_da):
-    # Caso 1: Time è una coordinata scalare ma non una dimensione (es. un solo step)
-    if "time" in da.coords and "time" not in da.dims:
-        da = da.expand_dims("time")
-    
-    # Caso 2: La dimensione si chiama 'step' o 'valid_time' invece di 'time'
-    if "time" not in da.dims:
-        if "valid_time" in da.dims:
-            da = da.rename({"valid_time": "time"})
-        elif "valid_time" in da.coords:
-            da = da.swap_dims({"step": "valid_time"}).rename({"valid_time": "time"})
-            
-    # Caso 3: Time c'è ma non è un indice (raro, ma possibile)
-    if "time" in da.dims and "time" not in da.indexes:
-        # A volte basta un sort per ripristinare l'indice
-        da = da.sortby("time")
-
-    # Allineamento finale: forza msl ad avere gli stessi tempi di t2m
-    # Usa 'nearest' per tollerare differenze di millisecondi tra variabili diverse
-    try:
-        da = da.sel(time=ref_da.time, method="nearest")
-    except Exception as e:
-        print(f"⚠️ Impossibile allineare perfettamente: {e}")
-    
-    return da
-
-# Applica il fix specificamente a msl (che sta dando errore) e alle altre variabili critiche
-msl = fix_time_index(msl, t2m)
-
 # ==================== UTILS MAPPE E PLOT ====================
-print("🗺️ Caricamento shapefile...")
+print("🗺️ Caricamento shapefile...", flush=True)
 regions_geom = None
 if os.path.exists(SHP_PATH):
     try:
         reg_df = gpd.read_file(SHP_PATH).explode(index_parts=False).to_crs(epsg=4326)
         regions_geom = reg_df.geometry
-        print("✅ Shapefile caricato correttamente!")
+        # Semplificazione per evitare segfault con Cartopy su GitHub Actions
+        regions_geom = regions_geom.simplify(tolerance=0.01, preserve_topology=True)
+        print("✅ Shapefile caricato e semplificato!", flush=True)
     except Exception as e:
-        print(f"⚠️ Errore caricamento shapefile: {e}")
-        print("   I confini non verranno disegnati.")
+        print(f"⚠️ Errore caricamento shapefile: {e}", flush=True)
 else:
-    print(f"⚠️ Shapefile non trovato: {SHP_PATH}")
+    print(f"⚠️ Shapefile non trovato: {SHP_PATH}", flush=True)
 
 def setup_map():
     fig = plt.figure(figsize=(12, 10))
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.coastlines(linewidth=0.4)
-    # Usa i confini regionali se disponibili, altrimenti fallback sui borders di default
     if regions_geom is not None:
         ax.add_geometries(regions_geom, ccrs.PlateCarree(), facecolor='none', edgecolor='k', linewidth=0.5)
     else:
@@ -306,26 +280,25 @@ def setup_map():
     return fig, ax
 
 def add_mslp(ax, msl_da):
-    # --- Rilevamento coordinate robusto (lon vs longitude) ---
+    # Controllo se è una mappa 2D (ha lat/lon)
+    if "latitude" not in msl_da.coords or "longitude" not in msl_da.coords:
+        if "lat" not in msl_da.coords or "lon" not in msl_da.coords:
+            return # Skip if no coords
+            
     if "longitude" in msl_da.coords:
-        x, y = msl_da["longitude"], msl_da["latitude"]
+        x, y = msl_da.longitude, msl_da.latitude
     elif "lon" in msl_da.coords:
-        x, y = msl_da["lon"], msl_da["lat"]
+        x, y = msl_da.lon, msl_da.lat
     else:
-        # Fallback di emergenza
-        print(f"⚠️ Coordinate MSLP non trovate. Keys: {list(msl_da.coords)}")
         return
 
     mn = np.floor(msl_da.min() / 2) * 2
     mx = np.ceil(msl_da.max() / 2) * 2 + 1
     levels = np.arange(mn, mx, 2)
     lws = [1 if (abs(l - 1000) % 8 == 0) else 0.6 for l in levels]
-    
-    # Usa x, y rilevati invece di msl_da.longitude
     cs = ax.contour(x, y, msl_da, 
                     levels=levels, colors="k", linewidths=lws, alpha=0.9)
     ax.clabel(cs, fmt="%d", fontsize=8, inline=True, colors='k')
-
 
 def save_plot(name): 
     plt.savefig(name, dpi=120, bbox_inches="tight")
@@ -356,14 +329,15 @@ def finalize_plot(fig, ax, cf, run_dt, valid_dt, title_bold, title_normal, cbar_
     cbar.set_label(cbar_label, fontsize=10)
     cbar.ax.tick_params(labelsize=7, rotation=0)
     
-    # --- CONVERSIONE DATE IN ORA LOCALE ---
-    run_dt_loc = run_dt.astimezone(TZ_ROME)
-    
+    # --- CONVERSIONE ORARIO LOCALE (con gestione DST automatica) ---
+    if run_dt.tzinfo is None: run_dt = run_dt.replace(tzinfo=timezone.utc)
     if isinstance(valid_dt, np.datetime64): 
         valid_dt = pd.to_datetime(valid_dt).replace(tzinfo=timezone.utc)
     elif isinstance(valid_dt, pd.Timestamp):
         if valid_dt.tz is None: valid_dt = valid_dt.replace(tzinfo=timezone.utc)
     
+    # Questo converte automaticamente tenendo conto della data (Estate=+2, Inverno=+1)
+    run_dt_loc = run_dt.astimezone(TZ_ROME)
     valid_dt_loc = valid_dt.astimezone(TZ_ROME)
 
     run_str = run_dt.strftime("%d/%m/%Y %H UTC")
@@ -386,24 +360,30 @@ def finalize_plot(fig, ax, cf, run_dt, valid_dt, title_bold, title_normal, cbar_
 
 
 # ==================== MAIN LOOP (PLOT ORARI) ====================
-print("\n🎨 Generazione Plot Orari...")
+print("\n🎨 Generazione Plot Orari...", flush=True)
 times = t2m.time.values
 prev_tp = None
 snowpack = xr.zeros_like(tp.isel(time=0))
-start_time = times[0]
 
 for idx, t_val in enumerate(times):
+    # NOME FILE BASATO SU STEP (000, 001...) PER SOVRASCRITTURA
     step_str = f"{idx:03d}"
-    valid_dt_obj = pd.to_datetime(t_val).replace(tzinfo=timezone.utc)
-    print(f"   Step {step_str}...", flush=True) 
+    print(f"   [{idx+1}/{len(times)}] Elaborazione Step {step_str}...", flush=True)
     
-    t2 = t2m.sel(time=t_val)
-    td = d2m.sel(time=t_val)
-    msl_curr = msl.sel(time=t_val)
-    msl_s = xr.DataArray(gaussian_filter(msl_curr, 4.0), coords=msl_curr.coords, dims=msl_curr.dims)
+    valid_dt_obj = pd.to_datetime(t_val).replace(tzinfo=timezone.utc)
+    
+    # SELEZIONE ROBUSTA (method='nearest')
+    t2 = t2m.sel(time=t_val, method='nearest')
+    td = d2m.sel(time=t_val, method='nearest')
+    msl_curr = msl.sel(time=t_val, method='nearest')
+    
+    if "latitude" in msl_curr.coords and "longitude" in msl_curr.coords:
+        msl_s = xr.DataArray(gaussian_filter(msl_curr, 4.0), coords=msl_curr.coords, dims=msl_curr.dims)
+    else:
+        msl_s = msl_curr
     
     try:
-        prec = tp.sel(time=t_val).fillna(0)
+        prec = tp.sel(time=t_val, method='nearest').fillna(0)
     except KeyError:
         prec = xr.zeros_like(t2)
 
@@ -415,12 +395,16 @@ for idx, t_val in enumerate(times):
     snowpack = (snowpack + new_snow - melt).clip(min=0)
     new_snow_plot = round_prec_data(new_snow)
     
-    u = u10.sel(time=t_val); v = v10.sel(time=t_val)
+    u = u10.sel(time=t_val, method='nearest')
+    v = v10.sel(time=t_val, method='nearest')
     ws10 = np.sqrt(u**2 + v**2) * 3.6 
-    c_val = cape.sel(time=t_val)
-    zt_val = zt.sel(time=t_val)
-    u7 = u700.sel(time=t_val); v7 = v700.sel(time=t_val)
+    c_val = cape.sel(time=t_val, method='nearest')
+    zt_val = zt.sel(time=t_val, method='nearest')
+    u7 = u700.sel(time=t_val, method='nearest')
+    v7 = v700.sel(time=t_val, method='nearest')
 
+    # SALVA I PLOT USANDO step_str
+    
     # PLOT 1: T2M
     fig, ax = setup_map()
     cf = ax.contourf(t2.longitude, t2.latitude, t2, levels=boundaries_t, cmap=cmap_t, norm=norm_t, extend="both")
@@ -482,7 +466,7 @@ for idx, t_val in enumerate(times):
 
 
 # ==================== PLOT FINALI CUMULATI ====================
-print("\n📊 Generazione Cumulate Finali...")
+print("\n📊 Generazione Cumulate Finali...", flush=True)
 
 last_time_val = t2m.time.values[-1]
 last_time_dt = pd.to_datetime(last_time_val).replace(tzinfo=timezone.utc)
@@ -551,4 +535,4 @@ for idx, day in enumerate(days):
             finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Raffica di vento massima", "Giornaliera", "Intensità della raffica (km/h)", explicit_ticks=boundaries_g)
             save_plot(os.path.join(OUTDIR, f"GUST_MAX_DAY_{day_idx_str}.png"))
 
-print("\n✅ Finito!")
+print("\n✅ Finito!", flush=True)
