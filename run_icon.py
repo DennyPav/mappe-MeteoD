@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import requests
-import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import geopandas as gpd  # <--- Assicurati che geopandas sia nel requirements.txt
@@ -17,8 +16,9 @@ from datetime import datetime, timedelta, timezone
 from scipy.ndimage import gaussian_filter
 from matplotlib.colors import ListedColormap, BoundaryNorm
 import pytz
-
+import matplotlib
 matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 warnings.filterwarnings("ignore")
 
@@ -350,7 +350,7 @@ start_time = times[0]
 for idx, t_val in enumerate(times):
     step_str = f"{idx:03d}"
     valid_dt_obj = pd.to_datetime(t_val).replace(tzinfo=timezone.utc)
-    print(f"   Step {step_str}...", end="\r")
+    print(f"   Step {step_str}...", flush=True) 
     
     t2 = t2m.sel(time=t_val)
     td = d2m.sel(time=t_val)
