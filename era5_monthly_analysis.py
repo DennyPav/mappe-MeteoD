@@ -128,29 +128,6 @@ cmap_t = ListedColormap(colors_t)
 norm_t = BoundaryNorm(boundaries_t, cmap_t.N)
 
 # --- 2. PRECIPITAZIONE (ASSOLUTA) ---
-colors_p_cum = [
-    "#ffffff", "#8fd3ff", "#00a6ff", "#0055ff", "#0000aa", "#32cd32", "#008000",
-    "#ffff00", "#ffcc00", "#ff9900", "#ff4500", "#ff0000", "#b30000", "#ff1493",
-    "#ff00ff", "#9400d3", "#4b0082", "#dadada", "#909090", "#505050", "#000000"
-]
-boundaries_p_cum = [0,1,5,10,15,20,30,40,50,75,100,125,150,200,250,300,400,500,650,800,1000]
-cmap_p_cum = ListedColormap(colors_p_cum)
-cmap_p_cum.set_under("none")
-norm_p_cum = BoundaryNorm(boundaries_p_cum, cmap_p_cum.N, clip=False)
-
-# --- 3. ANOMALIA TEMPERATURA ---
-boundaries_anom_temp = np.arange(-4.3, 4.5, 0.3)
-colors_anom_temp = [
-    "#002473","#00287f","#113b8c","#234d99","#3560a6","#4772b3","#5984c0",
-    "#6b96cd","#7da8da","#8fbbe7","#a1cdf4","#b3dfff","#c5f1ff","#d7ffff","#ffffff",
-    "#ffffff","#ffffff","#ffebe8","#ffd6d0","#ffc1b8","#ffaca0","#ff9788","#ff8270",
-    "#ff6d58","#ff583f","#ff4327","#ff2e0f","#e32000","#c81800","#a41200","#7f0000","#640000"
-]
-cmap_anom_temp = mcolors.ListedColormap(colors_anom_temp)
-norm_anom_temp = mcolors.BoundaryNorm(boundaries_anom_temp, cmap_anom_temp.N, extend="both")
-
-# --- 4. ANOMALIA PRECIPITAZIONE ---
-
 boundaries_prec = np.arange(0, 295, 5)  # Include il limite superiore
 colors_prec = [
     "#ffffff", "#eaf7fd", "#d5effb", "#bfe7f9", "#aae0f7", "#94d8f5", # Bianco -> Celestino chiaro
@@ -168,6 +145,28 @@ colors_prec = [
 # Creare la colormap personalizzata
 cmap_p_cum = mcolors.ListedColormap(colors_prec)
 norm_p_cum = mcolors.BoundaryNorm(boundaries_prec, cmap_p_cum.N, extend='both')
+
+# --- 3. ANOMALIA TEMPERATURA ---
+boundaries_anom_temp = np.arange(-4.3, 4.5, 0.3)
+colors_anom_temp = [
+    "#002473","#00287f","#113b8c","#234d99","#3560a6","#4772b3","#5984c0",
+    "#6b96cd","#7da8da","#8fbbe7","#a1cdf4","#b3dfff","#c5f1ff","#d7ffff","#ffffff",
+    "#ffffff","#ffffff","#ffebe8","#ffd6d0","#ffc1b8","#ffaca0","#ff9788","#ff8270",
+    "#ff6d58","#ff583f","#ff4327","#ff2e0f","#e32000","#c81800","#a41200","#7f0000","#640000"
+]
+cmap_anom_temp = mcolors.ListedColormap(colors_anom_temp)
+norm_anom_temp = mcolors.BoundaryNorm(boundaries_anom_temp, cmap_anom_temp.N, extend="both")
+
+# --- 4. ANOMALIA PRECIPITAZIONE ---
+
+boundaries_anom_prec = np.arange(-100,101,10)
+colors_anom_prec = [
+    "#6b3f2a","#844c2d","#9b5930","#b26633","#c97336","#df8142","#eaa974",
+    "#f2c9a8","#f9e1cf","#fdf1e7","#ffffff","#ffffff","#dbf5db","#c6edc6","#b0e5b0",
+    "#99dd99","#83d483","#6dcc6d","#56b456","#3e9c3e","#267426","#005500"
+]
+cmap_anom_prec = mcolors.ListedColormap(colors_anom_prec)
+norm_anom_prec = mcolors.BoundaryNorm(boundaries_anom_prec, cmap_anom_prec.N, extend="both")
 
 # ============================================================
 # CONFINI REGIONALI - Download se necessario
