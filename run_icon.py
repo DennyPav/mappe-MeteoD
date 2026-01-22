@@ -306,13 +306,26 @@ def setup_map():
     return fig, ax
 
 def add_mslp(ax, msl_da):
+    # --- Rilevamento coordinate robusto (lon vs longitude) ---
+    if "longitude" in msl_da.coords:
+        x, y = msl_da["longitude"], msl_da["latitude"]
+    elif "lon" in msl_da.coords:
+        x, y = msl_da["lon"], msl_da["lat"]
+    else:
+        # Fallback di emergenza
+        print(f"⚠️ Coordinate MSLP non trovate. Keys: {list(msl_da.coords)}")
+        return
+
     mn = np.floor(msl_da.min() / 2) * 2
     mx = np.ceil(msl_da.max() / 2) * 2 + 1
     levels = np.arange(mn, mx, 2)
     lws = [1 if (abs(l - 1000) % 8 == 0) else 0.6 for l in levels]
-    cs = ax.contour(msl_da.longitude, msl_da.latitude, msl_da, 
+    
+    # Usa x, y rilevati invece di msl_da.longitude
+    cs = ax.contour(x, y, msl_da, 
                     levels=levels, colors="k", linewidths=lws, alpha=0.9)
     ax.clabel(cs, fmt="%d", fontsize=8, inline=True, colors='k')
+
 
 def save_plot(name): 
     plt.savefig(name, dpi=120, bbox_inches="tight")
