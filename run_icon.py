@@ -271,13 +271,18 @@ def setup_map():
     fig = plt.figure(figsize=(12, 10))
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.coastlines(linewidth=0.4)
+    
+    # Aggiungi SEMPRE i confini nazionali
+    ax.add_feature(cfeature.BORDERS, linewidth=0.6, edgecolor='black')
+    
+    # Aggiungi i confini regionali SE disponibili
     if regions_geom is not None:
-        ax.add_geometries(regions_geom, ccrs.PlateCarree(), facecolor='none', edgecolor='k', linewidth=0.5)
-    else:
-        ax.add_feature(cfeature.BORDERS, linewidth=0.4)
-        
+        ax.add_geometries(regions_geom, ccrs.PlateCarree(), 
+                          facecolor='none', edgecolor='darkgray', linewidth=0.4)
+    
     ax.set_extent(MAP_EXTENT, crs=ccrs.PlateCarree())
     return fig, ax
+
 
 def add_mslp(ax, msl_da):
     # Controllo se è una mappa 2D (ha lat/lon)
