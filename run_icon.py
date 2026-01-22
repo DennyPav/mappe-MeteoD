@@ -20,7 +20,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-warnings.filterwarnings("ignore")
+# warnings.filterwarnings("ignore")
 
 # ==================== CONFIGURAZIONE PATH (GitHub Friendly) ====================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
