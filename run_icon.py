@@ -497,7 +497,7 @@ for idx, t_day in enumerate(daily_prec.time.values):
     prec_day_plot = round_prec_data(prec_day_data)
     fig, ax = setup_map()
     cf = ax.contourf(prec_day_plot.longitude, prec_day_plot.latitude, prec_day_plot.squeeze(), levels=boundaries_p_cum, cmap=cmap_p_cum, norm=norm_p_cum, extend="max")
-    finalize_plot(fig, ax, cf, run_datetime_obj, ts, "Precipitazione Totale Cumulata", "Giornaliera (00-00 UTC)", "Totale (mm)", boundaries_p_cum)
+    finalize_plot(fig, ax, cf, run_datetime_obj, ts, "Precipitazione Totale Cumulata", "Giornaliera", "Precipitazione Totale giornaliera (mm)", boundaries_p_cum)
     save_plot(os.path.join(OUTDIR, f"PREC_CUM_DAY_{day_idx_str}.png"))
 
 # 4. TMIN / TMAX / RAFFICA
