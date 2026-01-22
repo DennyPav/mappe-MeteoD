@@ -65,7 +65,7 @@ jobs:
           ERA5_FOLDER_ID=$(echo "$ERA5_FOLDER_ID" | tr -d '\n')
 
           # Nome del remote definito nel rclone.conf
-          REMOTE_NAME="gdrive"  # usa lo stesso remote degli altri script
+          REMOTE_NAME="gd_personal"
 
           # File PNG da caricare
           TEMP_FILE=$(find data/plot_mensili_era5_only -type f -name "temperatura_*.png" | sort -nr | head -1)
