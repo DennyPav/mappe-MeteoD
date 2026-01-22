@@ -147,16 +147,37 @@ cmap_p_cum = mcolors.ListedColormap(colors_prec)
 norm_p_cum = mcolors.BoundaryNorm(boundaries_prec, cmap_p_cum.N, extend='both')
 
 # --- 3. ANOMALIA TEMPERATURA ---
-boundaries_anom_temp = np.arange(-4.3, 4.5, 0.3)
-colors_anom_temp = [
-    "#002473","#00287f","#113b8c","#234d99","#3560a6","#4772b3","#5984c0",
-    "#6b96cd","#7da8da","#8fbbe7","#a1cdf4","#b3dfff","#c5f1ff","#d7ffff","#ffffff",
-    "#ffffff","#ffffff","#ffebe8","#ffd6d0","#ffc1b8","#ffaca0","#ff9788","#ff8270",
-    "#ff6d58","#ff583f","#ff4327","#ff2e0f","#e32000","#c81800","#a41200","#7f0000","#640000"
-]
-cmap_anom_temp = mcolors.ListedColormap(colors_anom_temp)
-norm_anom_temp = mcolors.BoundaryNorm(boundaries_anom_temp, cmap_anom_temp.N, extend="both")
+boundaries_anom_temp = np.array([
+    -4.5, -4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5,
+    -0.2, 0.2,
+     0.5,  1.0,  1.5,  2.0,  2.5,  3.0,  3.5,  4.0,  4.5
+])
 
+# Colori BLU vividi (-4.5 → -0.5)
+colors_blue = [
+    "#001f7f", "#0033a0", "#0049c1", "#0060e0",
+    "#1a73ff", "#4d8cff", "#80a5ff", "#a9c2ff", "#d7f0ff"
+]
+
+# Colore NEUTRO (bianco)
+colors_white = ["#ffffff"]
+
+# Colori ROSSI vividi (+0.5 → +4.5)
+colors_red = [
+    "#ffd6d6", "#ff9999", "#ff6666", "#ff4040",
+    "#ff1a1a", "#e60000", "#b30000", "#800000", "#520000"
+]
+
+# Colormap completa
+colors_anom_temp = colors_blue + colors_white + colors_red
+cmap_anom_temp = mcolors.ListedColormap(colors_anom_temp)
+
+# Normalizzazione a boundaries
+norm_anom_temp = mcolors.BoundaryNorm(
+    boundaries_anom_temp,
+    cmap_anom_temp.N,
+    clip=True
+)
 # --- 4. ANOMALIA PRECIPITAZIONE ---
 
 boundaries_anom_prec = np.arange(-100,101,10)
@@ -241,20 +262,24 @@ def plot_combo(data_abs, data_anom,
     ax1.set_extent(extent, crs=ccrs.PlateCarree())
     ax1.coastlines(linewidth=1)
     ax1.add_feature(cfeature.BORDERS, linewidth=0.8)
-    
+
     if reg_df is not None:
         ax1.add_geometries(
             reg_df.geometry, ccrs.PlateCarree(),
             edgecolor="black", facecolor="none", linewidth=0.3
         )
-    
+
     ax1.set_title(title_anom, fontsize=12, fontweight="bold", pad=8)
+
+    # Colorbar con tick selezionati
+    ticks_anom = [-4, -3, -2, -1, -0.2, 0.2, 1, 2, 3, 4]
 
     cbar1 = fig.colorbar(
         pcm1, ax=ax1,
         orientation="horizontal",
         fraction=0.05, pad=0.03,
-        extend="both"
+        extend="both",
+        ticks=ticks_anom
     )
     cbar1.set_label(unit_anom, fontsize=8)
     cbar1.ax.tick_params(labelsize=6)
