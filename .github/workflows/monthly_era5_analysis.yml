@@ -1,0 +1,71 @@
+name: Monthly ERA5 Analysis
+
+on:
+  schedule:
+    # Esegue il 7 di ogni mese alle 06:00 UTC
+    - cron: '0 6 7 * *'
+  workflow_dispatch:  # Permette esecuzione manuale
+
+jobs:
+  generate-and-upload:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgeos-dev libproj-dev
+    
+    - name: Install Python dependencies
+      run: |
+        pip install numpy xarray netCDF4 geopandas matplotlib cartopy cdsapi
+    
+    - name: Create CDS API configuration
+      env:
+        CDS_API_URL: ${{ secrets.CDS_API_URL }}
+        CDS_API_KEY: ${{ secrets.CDS_API_KEY }}
+      run: |
+        mkdir -p ~/.cdsapi
+        echo "url: ${CDS_API_URL}" > ~/.cdsapirc
+        echo "key: ${CDS_API_KEY}" >> ~/.cdsapirc
+    
+    - name: Run ERA5 analysis
+      run: |
+        python era5_monthly_analysis.py
+    
+    - name: Get current year and month
+      id: date
+      run: |
+        echo "year=$(date -u '+%Y')" >> $GITHUB_OUTPUT
+        echo "month=$(date -u '+%m')" >> $GITHUB_OUTPUT
+    
+    - name: Upload temperatura to Google Drive
+      uses: willo32/google-drive-upload-action@v1
+      with:
+        target: data/plot_mensili_era5_only/${{ steps.date.outputs.year }}_${{ steps.date.outputs.month }}/temperatura_${{ steps.date.outputs.year }}_${{ steps.date.outputs.month }}.png
+        credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+        parent_folder_id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        name: temperatura_${{ steps.date.outputs.year }}_${{ steps.date.outputs.month }}.png
+    
+    - name: Upload precipitazione to Google Drive
+      uses: willo32/google-drive-upload-action@v1
+      with:
+        target: data/plot_mensili_era5_only/${{ steps.date.outputs.year }}_${{ steps.date.outputs.month }}/precipitazione_${{ steps.date.outputs.year }}_${{ steps.date.outputs.month }}.png
+        credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+        parent_folder_id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        name: precipitazione_${{ steps.date.outputs.year }}_${{ steps.date.outputs.month }}.png
+    
+    - name: Upload plots as artifacts (backup)
+      uses: actions/upload-artifact@v4
+      with:
+        name: era5-plots-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}
+        path: data/plot_mensili_era5_only/
+        retention-days: 30
