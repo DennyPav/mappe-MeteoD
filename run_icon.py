@@ -228,7 +228,7 @@ def open_grib_safe(token, short_name_hint, extra_filter=None):
     try:
         ds = xr.open_mfdataset(files, engine="cfgrib", combine="by_coords", backend_kwargs={"filter_by_keys": filt, "indexpath": ""})
         if short_name_hint in ds: return ds[short_name_hint]
-        for c in ["prmsl", "msl", "pres", "meanSea"]:
+        for c in ["prmsl", "pmsl"]:
             if c in ds: print(f"⚠️ Uso '{c}' per {token}", flush=True); return ds[c]
         if len(ds.data_vars) == 1: return ds[list(ds.data_vars)[0]]
         print(f"❌ Variabile {short_name_hint} non trovata in {token}", flush=True); sys.exit(1)
