@@ -472,7 +472,7 @@ for idx, step_td in enumerate(ref_steps):
     ax.set_title(r"$\bf{Precipitazione\ 3h - Pressione\ al\ livello\ del\ mare}$", fontsize=12)
 
     valid_str = run_dt.strftime("%d/%m/%Y")
-    valid_str_2 = valid_dt.strftime("%H") + f" (+{step_h}h) IT"
+    valid_str_2 = valid_dt.strftime("%H") + f" (+{step_h}h)"
     timestep_date = valid_dt.strftime("%d/%m/%Y")
 
     fig.suptitle(
