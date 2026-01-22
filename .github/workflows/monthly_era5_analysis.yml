@@ -1,71 +1,77 @@
-name: Monthly ERA5 Analysis
+name: Monthly ERA5 Analysis (rclone)
 
 on:
   schedule:
-    # Esegue il 7 di ogni mese alle 06:00 UTC
-    - cron: '0 6 7 * *'
-  workflow_dispatch:  # Permette esecuzione manuale
+    - cron: "0 6 7 * *"
+  workflow_dispatch:
 
 jobs:
-  generate-and-upload:
+  run-and-upload:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libgeos-dev libproj-dev
-    
-    - name: Install Python dependencies
-      run: |
-        pip install numpy xarray netCDF4 geopandas matplotlib cartopy cdsapi
-    
-    - name: Create CDS API configuration
-      env:
-        CDS_API_URL: ${{ secrets.CDS_API_URL }}
-        CDS_API_KEY: ${{ secrets.CDS_API_KEY }}
-      run: |
-        mkdir -p ~/.cdsapi
-        echo "url: ${CDS_API_URL}" > ~/.cdsapirc
-        echo "key: ${CDS_API_KEY}" >> ~/.cdsapirc
-    
-    - name: Run ERA5 analysis
-      run: |
-        python era5_monthly_analysis.py
-    
-    - name: Get current year and month
-      id: date
-      run: |
-        echo "year=$(date -u '+%Y')" >> $GITHUB_OUTPUT
-        echo "month=$(date -u '+%m')" >> $GITHUB_OUTPUT
-    
-    - name: Upload temperatura to Google Drive
-      uses: willo32/google-drive-upload-action@v1
-      with:
-        target: data/plot_mensili_era5_only/${{ steps.date.outputs.year }}_${{ steps.date.outputs.month }}/temperatura_${{ steps.date.outputs.year }}_${{ steps.date.outputs.month }}.png
-        credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
-        parent_folder_id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
-        name: temperatura_${{ steps.date.outputs.year }}_${{ steps.date.outputs.month }}.png
-    
-    - name: Upload precipitazione to Google Drive
-      uses: willo32/google-drive-upload-action@v1
-      with:
-        target: data/plot_mensili_era5_only/${{ steps.date.outputs.year }}_${{ steps.date.outputs.month }}/precipitazione_${{ steps.date.outputs.year }}_${{ steps.date.outputs.month }}.png
-        credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
-        parent_folder_id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
-        name: precipitazione_${{ steps.date.outputs.year }}_${{ steps.date.outputs.month }}.png
-    
-    - name: Upload plots as artifacts (backup)
-      uses: actions/upload-artifact@v4
-      with:
-        name: era5-plots-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}
-        path: data/plot_mensili_era5_only/
-        retention-days: 30
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: System deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgeos-dev libproj-dev
+
+      - name: Python deps
+        run: |
+          pip install numpy xarray netCDF4 geopandas matplotlib cartopy cdsapi
+
+      - name: Configure CDS API
+        env:
+          CDS_API_URL: ${{ secrets.CDS_API_URL }}
+          CDS_API_KEY: ${{ secrets.CDS_API_KEY }}
+        run: |
+          mkdir -p ~/.cdsapi
+          printf "url: %s\nkey: %s\n" "$CDS_API_URL" "$CDS_API_KEY" > ~/.cdsapirc
+
+      - name: Run script
+        run: |
+          python era5_monthly_analysis.py
+
+      - name: Install rclone
+        run: |
+          sudo -v
+          curl https://rclone.org/install.sh | sudo bash
+
+      - name: Prepare rclone config (Google Drive)
+        env:
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          GDRIVE_SA_JSON_B64: ${{ secrets.GDRIVE_SA_JSON_B64 }}
+        run: |
+          mkdir -p ~/.config/rclone
+
+          # Service Account JSON -> file
+          echo "$GDRIVE_SA_JSON_B64" | base64 -d > ~/.config/rclone/sa.json
+
+          # rclone.conf: usa la cartella target come root_folder_id
+          cat > ~/.config/rclone/rclone.conf <<EOF
+          [gdrive]
+          type = drive
+          scope = drive
+          service_account_file = ~/.config/rclone/sa.json
+          root_folder_id = ${GDRIVE_FOLDER_ID}
+          EOF
+
+      - name: Upload PNG to Google Drive (rclone)
+        run: |
+          # Prende i file più recenti generati (in caso di retry/vecchi output)
+          TEMP_FILE=$(find data/plot_mensili_era5_only -type f -name "temperatura_*.png" -printf "%T@ %p\n" | sort -nr | head -1 | cut -d' ' -f2-)
+          PREC_FILE=$(find data/plot_mensili_era5_only -type f -name "precipitazione_*.png" -printf "%T@ %p\n" | sort -nr | head -1 | cut -d' ' -f2-)
+
+          echo "Uploading:"
+          echo " - $TEMP_FILE"
+          echo " - $PREC_FILE"
+
+          rclone copy "$TEMP_FILE" gdrive: --config ~/.config/rclone/rclone.conf
+          rclone copy "$PREC_FILE" gdrive: --config ~/.config/rclone/rclone.conf
