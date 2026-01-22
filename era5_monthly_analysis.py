@@ -150,14 +150,24 @@ cmap_anom_temp = mcolors.ListedColormap(colors_anom_temp)
 norm_anom_temp = mcolors.BoundaryNorm(boundaries_anom_temp, cmap_anom_temp.N, extend="both")
 
 # --- 4. ANOMALIA PRECIPITAZIONE ---
-boundaries_anom_prec = np.arange(-100,101,10)
-colors_anom_prec = [
-    "#6b3f2a","#844c2d","#9b5930","#b26633","#c97336","#df8142","#eaa974",
-    "#f2c9a8","#f9e1cf","#fdf1e7","#ffffff","#ffffff","#dbf5db","#c6edc6","#b0e5b0",
-    "#99dd99","#83d483","#6dcc6d","#56b456","#3e9c3e","#267426","#005500"
+
+boundaries_prec = np.arange(0, 295, 5)  # Include il limite superiore
+colors_prec = [
+    "#ffffff", "#eaf7fd", "#d5effb", "#bfe7f9", "#aae0f7", "#94d8f5", # Bianco -> Celestino chiaro
+    "#7ed1f3", "#68caf1", "#52c3ef", "#3dbbec", "#27b4ea", "#12ade8", # Celestino chiaro -> Celestino medio
+    "#00a6e6", "#0095d4", "#0084c3", "#0072b1", "#00619f", "#00508d", # Celestino medio -> Blu
+    "#003f7b", "#002e69", "#001d57", "#f7fbb3", "#f4f89f", "#f1f68b", # Blu -> Giallo chiaro
+    "#eff377", "#ecf163", "#e9ef4f", "#e6ed3b", "#e3eb27", "#e0e913", # Giallo chiaro -> Giallo intenso
+    "#ffd800", "#ffc700", "#ffb700", "#ffa600", "#ff9500", "#ff8400", # Giallo intenso -> Arancione
+    "#ff7300", "#ff6200", "#ff5100", "#ff4000", "#ff2f00", "#ff1e00", # Arancione -> Rosso chiaro
+    "#e51700", "#cc1000", "#b40a00", "#9c0400", "#840000", "#9a0038", # Rosso chiaro -> Rosso scuro
+    "#b00050", "#c60068", "#dd007f", "#f30096", "#ff19ac", "#ff33c2", # Rosso scuro -> Viola rosato
+    "#ff4dd8", "#ff66ef", "#ff80f5", "#ff99fb", "#ffb3ff", "#ffe5ff", # Viola rosato -> Rosa chiaro
 ]
-cmap_anom_prec = mcolors.ListedColormap(colors_anom_prec)
-norm_anom_prec = mcolors.BoundaryNorm(boundaries_anom_prec, cmap_anom_prec.N, extend="both")
+
+# Creare la colormap personalizzata
+cmap_p_cum = mcolors.ListedColormap(colors_prec)
+norm_p_cum = mcolors.BoundaryNorm(boundaries_prec, cmap_p_cum.N, extend='both')
 
 # ============================================================
 # CONFINI REGIONALI - Download se necessario
@@ -271,7 +281,7 @@ plot_combo(
     norm_anom=norm_anom_temp,
     title_abs="Temperatura media ERA5-Land",
     title_anom="Anomalia di temperatura",
-    suptitle=f"Temperatura – {mese} {year}",
+    suptitle=f"{mese} {year}",
     unit_abs="Temperatura (°C)",
     unit_anom="Anomalia rispetto alla climatologia [1991-2020] (°C)",
     out_file=os.path.join(out_dir, temp_filename)
@@ -288,7 +298,7 @@ plot_combo(
     norm_anom=norm_anom_prec,
     title_abs="Precipitazione totale mensile",
     title_anom="Anomalia di precipitazione",
-    suptitle=f"Precipitazione – {mese} {year}",
+    suptitle=f"{mese} {year}",
     unit_abs="Precipitazione (mm)",
     unit_anom="Anomalia rispetto alla climatologia [1991-2020] (mm)",
     out_file=os.path.join(out_dir, prec_filename)
