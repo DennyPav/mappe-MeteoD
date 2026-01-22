@@ -246,6 +246,38 @@ z500 = to_forecast_time(open_grib_safe("FI", "z", {"typeOfLevel": "isobaricInhPa
 u700 = to_forecast_time(open_grib_safe("U", "u", {"typeOfLevel": "isobaricInhPa", "level": 700}))
 v700 = to_forecast_time(open_grib_safe("V", "v", {"typeOfLevel": "isobaricInhPa", "level": 700}))
 
+# ==================== FIX ALLINEAMENTO TEMPORALE ====================
+print("🔧 Verifica e fix indici temporali...")
+
+def fix_time_index(da, ref_da):
+    # Caso 1: Time è una coordinata scalare ma non una dimensione (es. un solo step)
+    if "time" in da.coords and "time" not in da.dims:
+        da = da.expand_dims("time")
+    
+    # Caso 2: La dimensione si chiama 'step' o 'valid_time' invece di 'time'
+    if "time" not in da.dims:
+        if "valid_time" in da.dims:
+            da = da.rename({"valid_time": "time"})
+        elif "valid_time" in da.coords:
+            da = da.swap_dims({"step": "valid_time"}).rename({"valid_time": "time"})
+            
+    # Caso 3: Time c'è ma non è un indice (raro, ma possibile)
+    if "time" in da.dims and "time" not in da.indexes:
+        # A volte basta un sort per ripristinare l'indice
+        da = da.sortby("time")
+
+    # Allineamento finale: forza msl ad avere gli stessi tempi di t2m
+    # Usa 'nearest' per tollerare differenze di millisecondi tra variabili diverse
+    try:
+        da = da.sel(time=ref_da.time, method="nearest")
+    except Exception as e:
+        print(f"⚠️ Impossibile allineare perfettamente: {e}")
+    
+    return da
+
+# Applica il fix specificamente a msl (che sta dando errore) e alle altre variabili critiche
+msl = fix_time_index(msl, t2m)
+
 # ==================== UTILS MAPPE E PLOT ====================
 print("🗺️ Caricamento shapefile...")
 regions_geom = None
