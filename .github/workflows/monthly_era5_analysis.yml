@@ -48,16 +48,25 @@ jobs:
 
       - name: Upload only the two PNG with rclone
         env:
-          ERA5_FOLDER: ${{ secrets.ERA5_FOLDER }}
+          ERA5_FOLDER_ID: ${{ secrets.ERA5_FOLDER }}  # solo l'ID della cartella
         run: |
           set -e
 
-          TEMP_FILE=$(find data/plot_mensili_era5_only -type f -name "temperatura_*.png" -printf "%T@ %p\n" | sort -nr | head -1 | cut -d' ' -f2-)
-          PREC_FILE=$(find data/plot_mensili_era5_only -type f -name "precipitazione_*.png" -printf "%T@ %p\n" | sort -nr | head -1 | cut -d' ' -f2-)
+          # Rimuove eventuali newline dal secret
+          ERA5_FOLDER_ID=$(echo "$ERA5_FOLDER_ID" | tr -d '\n')
+
+          # Prende il primo remote definito in rclone.conf
+          REMOTE_NAME=$(grep -oP '^\[\K[^\]]+' ~/.config/rclone/rclone.conf | head -n 1)
+
+          # File PNG da caricare
+          TEMP_FILE=$(find data/plot_mensili_era5_only -type f -name "temperatura_*.png" | sort -nr | head -1)
+          PREC_FILE=$(find data/plot_mensili_era5_only -type f -name "precipitazione_*.png" | sort -nr | head -1)
 
           echo "TEMP_FILE=$TEMP_FILE"
           echo "PREC_FILE=$PREC_FILE"
-          echo "DEST=$ERA5_FOLDER"
+          echo "UPLOAD su cartella ID: $ERA5_FOLDER_ID"
+          echo "REMOTE_NAME=$REMOTE_NAME"
 
-          rclone copy "$TEMP_FILE" "$ERA5_FOLDER" --config ~/.config/rclone/rclone.conf -v
-          rclone copy "$PREC_FILE" "$ERA5_FOLDER" --config ~/.config/rclone/rclone.conf -v
+          # Upload su Google Drive usando solo l'ID della cartella
+          rclone copy "$TEMP_FILE" "${REMOTE_NAME}:" --drive-root-folder-id "$ERA5_FOLDER_ID" --config ~/.config/rclone/rclone.conf -v
+          rclone copy "$PREC_FILE" "${REMOTE_NAME}:" --drive-root-folder-id "$ERA5_FOLDER_ID" --config ~/.config/rclone/rclone.conf -v
