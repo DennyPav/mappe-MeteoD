@@ -3,7 +3,7 @@
 
 import os
 import sys
-import warnings
+# import warnings
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -17,6 +17,8 @@ from datetime import datetime, timedelta, timezone
 from scipy.ndimage import gaussian_filter
 from matplotlib.colors import ListedColormap, BoundaryNorm
 import pytz
+
+matplotlib.use('Agg')
 
 warnings.filterwarnings("ignore")
 
