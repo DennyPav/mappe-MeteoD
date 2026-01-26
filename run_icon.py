@@ -342,7 +342,7 @@ def save_plot(name):
         name, 
         dpi=120, 
         bbox_inches="tight", 
-        pil_kwargs={'quality': 70}
+        pil_kwargs={'quality': 65}
     )
     plt.close()
 
