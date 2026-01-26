@@ -42,13 +42,26 @@ run_dt = datetime(run_date.year, run_date.month, run_date.day, run_hour)
 DATE_STR = run_dt.strftime("%Y-%m-%d")
 DATE_TAG = run_dt.strftime("%Y%m%d")
 RUN_STR = f"{run_hour:02d}z"
+# Stringa formattata YYYYMMGGRR (es. 2026012512)
+RUN_ID_STRING = f"{DATE_TAG}{run_hour:02d}"
 
-print(f"🚀 Inizio elaborazione run {DATE_TAG} {RUN_STR}")
+print(f"🚀 Inizio elaborazione run {DATE_TAG} {RUN_STR} (ID: {RUN_ID_STRING})")
+
+# ==================== GENERA FILE TXT INFO RUN ====================
+# File fisso "datarun.txt" contenente solo l'ID del run
+txt_path = os.path.join(OUTDIR, "datarun.txt")
+
+try:
+    with open(txt_path, "w") as f:
+        f.write(RUN_ID_STRING)
+    print(f"📄 Generato file info run: datarun.txt -> {RUN_ID_STRING}")
+except Exception as e:
+    print(f"⚠️ Impossibile creare file TXT info run: {e}")
 
 # ==================== TIMEZONE SETUP ====================
 tz_rome = pytz.timezone('Europe/Rome')
 
-# ==================== NOMI FILE ====================
+# ==================== NOMI FILE DATI ====================
 FILES = {
     "pl_850":     os.path.join(OUTDIR, f"pl_850_{DATE_TAG}_{RUN_STR}.grib2"),
     "pl_700":     os.path.join(OUTDIR, f"pl_700_{DATE_TAG}_{RUN_STR}.grib2"),
@@ -62,14 +75,14 @@ FILES = {
 def clean_old_runs(outdir, date_tag, current_run):
     if not os.path.exists(outdir): return
     for fname in os.listdir(outdir):
-        if not fname.endswith(".grib2"):
-            continue
-        if date_tag not in fname or current_run not in fname:
-            try:
-                os.remove(os.path.join(outdir, fname))
-                print(f"🧹 Cancellato vecchio run: {fname}")
-            except Exception:
-                pass
+        # Rimuovi vecchi grib (non tocchiamo datarun.txt che viene sovrascritto)
+        if fname.endswith(".grib2"):
+            if date_tag not in fname or current_run not in fname:
+                try:
+                    os.remove(os.path.join(outdir, fname))
+                    print(f"🧹 Cancellato vecchio run (grib): {fname}")
+                except Exception:
+                    pass
 
 clean_old_runs(OUTDIR, DATE_TAG, RUN_STR)
 
@@ -324,7 +337,8 @@ for idx, step_td in enumerate(ref_steps):
     add_title(ax, "Temperatura\\ 850hPa\\ -\\ Altezza\\ di\\ Geopotenziale\\ 500\\ hPa", valid_dt, lead_str)
     cbar = plt.colorbar(cf, orientation='horizontal', pad=0.01, shrink=0.8, label="Temperatura (°C)", ticks=np.arange(-44,45,4))
     cbar.ax.tick_params(labelsize=8)
-    plt.savefig(os.path.join(OUTDIR, f"T850_GH500_{step_h:03d}.png"), dpi=120, bbox_inches='tight')
+    
+    plt.savefig(os.path.join(OUTDIR, f"T850_GH500_{step_h:03d}.webp"), dpi=120, quality=80, bbox_inches='tight')
     plt.close()
 
     # 2. T500 + GH500
@@ -339,7 +353,8 @@ for idx, step_td in enumerate(ref_steps):
     add_title(ax, "Temperatura\\ 500hPa\\ -\\ Altezza\\ di\\ Geopotenziale\\ 500\\ hPa", valid_dt, lead_str)
     cbar = plt.colorbar(cf, orientation='horizontal', pad=0.01, shrink=0.7, label="Temperatura (°C)", ticks=np.arange(-44,45,4))
     cbar.ax.tick_params(labelsize=8)
-    plt.savefig(os.path.join(OUTDIR, f"T500_GH500_{step_h:03d}.png"), dpi=120, bbox_inches='tight')
+    
+    plt.savefig(os.path.join(OUTDIR, f"T500_GH500_{step_h:03d}.webp"), dpi=120, quality=80, bbox_inches='tight')
     plt.close()
 
     # 3. VENTO 500
@@ -352,7 +367,8 @@ for idx, step_td in enumerate(ref_steps):
     add_title(ax, "Vento\\ 500hPa\\ -\\ Altezza\\ di\\ Geopotenziale\\ 500\\ hPa", valid_dt, lead_str)
     cbar = plt.colorbar(cf, orientation='horizontal', pad=0.01, shrink=0.7, label="Intensità del vento (km/h)")
     cbar.ax.tick_params(labelsize=8)
-    plt.savefig(os.path.join(OUTDIR, f"WIND500_{step_h:03d}.png"), dpi=120, bbox_inches='tight')
+    
+    plt.savefig(os.path.join(OUTDIR, f"WIND500_{step_h:03d}.webp"), dpi=120, quality=80, bbox_inches='tight')
     plt.close()
 
     # 4. RH 700
@@ -375,7 +391,8 @@ for idx, step_td in enumerate(ref_steps):
     sm_wind.set_array([])
     cbar_wind = fig.colorbar(sm_wind, cax=cax_wind, orientation='horizontal', label="Intensità del vento (km/h)")
     cbar_wind.ax.tick_params(labelsize=8)
-    plt.savefig(os.path.join(OUTDIR, f"RH700_{step_h:03d}.png"), dpi=120, bbox_inches='tight')
+    
+    plt.savefig(os.path.join(OUTDIR, f"RH700_{step_h:03d}.webp"), dpi=120, quality=80, bbox_inches='tight')
     plt.close()
 
     # 5. JET 300
@@ -388,7 +405,8 @@ for idx, step_td in enumerate(ref_steps):
     add_title(ax, "Jet\\ Stream\\ 300hPa\\ -\\ Altezza\\ di\\ Geopotenziale\\ 300\\ hPa", valid_dt, lead_str)
     cbar = plt.colorbar(cf, orientation='horizontal', pad=0.01, shrink=0.7, label="Intensità del vento (km/h)")
     cbar.ax.tick_params(labelsize=8)
-    plt.savefig(os.path.join(OUTDIR, f"JET300_{step_h:03d}.png"), dpi=120, bbox_inches='tight')
+    
+    plt.savefig(os.path.join(OUTDIR, f"JET300_{step_h:03d}.webp"), dpi=120, quality=80, bbox_inches='tight')
     plt.close()
 
     # 7. PRECIP + MSL
@@ -405,7 +423,8 @@ for idx, step_td in enumerate(ref_steps):
         cbar = plt.colorbar(cf, orientation='horizontal', pad=0.01, shrink=0.6, label="Precipitazione Totale 3h (mm)", ticks=tp_ticks)
         cbar.ax.set_xticklabels(tp_labels)
         cbar.ax.tick_params(labelsize=8)
-        plt.savefig(os.path.join(OUTDIR, f"PREC_MSL_{step_h:03d}.png"), dpi=120, bbox_inches='tight')
+        
+        plt.savefig(os.path.join(OUTDIR, f"PREC_MSL_{step_h:03d}.webp"), dpi=120, quality=80, bbox_inches='tight')
         plt.close()
 
     # 8. NEVE
@@ -422,7 +441,8 @@ for idx, step_td in enumerate(ref_steps):
         cbar = plt.colorbar(cf, orientation='horizontal', pad=0.01, shrink=0.6, label="Neve fresca accumulata da inizio run (cm)", ticks=snow_ticks)
         cbar.ax.set_xticklabels(snow_labels)
         cbar.ax.tick_params(labelsize=8)
-        plt.savefig(os.path.join(OUTDIR, f"SNOWPACK_MSL_{step_h:03d}.png"), dpi=120, bbox_inches='tight')
+        
+        plt.savefig(os.path.join(OUTDIR, f"SNOWPACK_MSL_{step_h:03d}.webp"), dpi=120, quality=80, bbox_inches='tight')
         plt.close()
 
     print(f"✅ Step +{step_h}h completato")
@@ -481,7 +501,8 @@ for idx, step_td in enumerate(ref_steps):
     )
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    plt.savefig(os.path.join(OUTDIR, f"italia_{step_h:03d}.png"), dpi=120, bbox_inches='tight')
+    
+    plt.savefig(os.path.join(OUTDIR, f"italia_{step_h:03d}.webp"), dpi=120, quality=80, bbox_inches='tight')
     plt.close()
     print(f"✅ Mappa Italia +{step_h}h completata")
 
