@@ -236,14 +236,14 @@ def open_grib_safe(token, short_name_hint, extra_filter=None):
     files = list_files(token)
     if not files: print(f"❌ Manca {token}", flush=True); sys.exit(1)
     filt = extra_filter if extra_filter else {}
+    
     try:
-        # MODIFICA FONDAMENTALE: combine='nested' e concat_dim='step'
-        # Questo risolve l'errore di concatenazione quando mancano coordinate dimensionali comuni
+        # RIPRISTINATA APERTURA "CLASSICA" MA ROBUSTA
+        # combine='by_coords' è il default e gestisce meglio coordinate temporali già presenti
         ds = xr.open_mfdataset(
             files, 
             engine="cfgrib", 
-            combine="nested", 
-            concat_dim="step", 
+            combine="by_coords", 
             backend_kwargs={"filter_by_keys": filt, "indexpath": ""}
         )
         
@@ -252,7 +252,16 @@ def open_grib_safe(token, short_name_hint, extra_filter=None):
             if c in ds: print(f"⚠️ Uso '{c}' per {token}", flush=True); return ds[c]
         if len(ds.data_vars) == 1: return ds[list(ds.data_vars)[0]]
         print(f"❌ Variabile {short_name_hint} non trovata in {token}", flush=True); sys.exit(1)
-    except Exception as e: print(f"❌ Errore apertura {token}: {e}", flush=True); sys.exit(1)
+        
+    except Exception as e:
+        # Se fallisce by_coords (raro su file singoli), riprova in modo semplice
+        try:
+             ds = xr.open_dataset(files[0], engine="cfgrib", backend_kwargs={"filter_by_keys": filt, "indexpath": ""})
+             if short_name_hint in ds: return ds[short_name_hint]
+             if len(ds.data_vars) == 1: return ds[list(ds.data_vars)[0]]
+        except:
+             pass
+        print(f"❌ Errore apertura {token}: {e}", flush=True); sys.exit(1)
 
 # ==================== CARICAMENTO DATI ====================
 print("\n📂 Caricamento e Conversione Unità...", flush=True)
