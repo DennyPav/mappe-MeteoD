@@ -335,10 +335,15 @@ def add_mslp(ax, msl_da):
     ax.clabel(cs, fmt="%d", fontsize=8, inline=True, colors='k')
 
 def save_plot(name):
-    # Forza estensione .webp e quality 80
+    # Forza estensione .webp e quality 80 usando pil_kwargs
     if name.endswith(".png"):
         name = name.replace(".png", ".webp")
-    plt.savefig(name, dpi=120, quality=80, bbox_inches="tight")
+    plt.savefig(
+        name, 
+        dpi=120, 
+        bbox_inches="tight", 
+        pil_kwargs={'quality': 80}
+    )
     plt.close()
 
 def wetbulb_stull(t, rh):
