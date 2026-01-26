@@ -342,7 +342,7 @@ for idx, step_td in enumerate(ref_steps):
         os.path.join(OUTDIR, f"T850_GH500_{step_h:03d}.webp"), 
         dpi=120, 
         bbox_inches='tight',
-        pil_kwargs={'quality': 80}
+        pil_kwargs={'quality': 70}
     )
     plt.close()
 
@@ -363,7 +363,7 @@ for idx, step_td in enumerate(ref_steps):
         os.path.join(OUTDIR, f"T500_GH500_{step_h:03d}.webp"), 
         dpi=120, 
         bbox_inches='tight',
-        pil_kwargs={'quality': 80}
+        pil_kwargs={'quality': 70}
     )
     plt.close()
 
@@ -382,7 +382,7 @@ for idx, step_td in enumerate(ref_steps):
         os.path.join(OUTDIR, f"WIND500_{step_h:03d}.webp"), 
         dpi=120, 
         bbox_inches='tight',
-        pil_kwargs={'quality': 80}
+        pil_kwargs={'quality': 70}
     )
     plt.close()
 
@@ -411,7 +411,7 @@ for idx, step_td in enumerate(ref_steps):
         os.path.join(OUTDIR, f"RH700_{step_h:03d}.webp"), 
         dpi=120, 
         bbox_inches='tight',
-        pil_kwargs={'quality': 80}
+        pil_kwargs={'quality': 70}
     )
     plt.close()
 
@@ -430,7 +430,7 @@ for idx, step_td in enumerate(ref_steps):
         os.path.join(OUTDIR, f"JET300_{step_h:03d}.webp"), 
         dpi=120, 
         bbox_inches='tight',
-        pil_kwargs={'quality': 80}
+        pil_kwargs={'quality': 70}
     )
     plt.close()
 
@@ -453,7 +453,7 @@ for idx, step_td in enumerate(ref_steps):
             os.path.join(OUTDIR, f"PREC_MSL_{step_h:03d}.webp"), 
             dpi=120, 
             bbox_inches='tight',
-            pil_kwargs={'quality': 80}
+            pil_kwargs={'quality': 70}
         )
         plt.close()
 
@@ -476,7 +476,7 @@ for idx, step_td in enumerate(ref_steps):
             os.path.join(OUTDIR, f"SNOWPACK_MSL_{step_h:03d}.webp"), 
             dpi=120, 
             bbox_inches='tight',
-            pil_kwargs={'quality': 80}
+            pil_kwargs={'quality': 70}
         )
         plt.close()
 
@@ -541,7 +541,7 @@ for idx, step_td in enumerate(ref_steps):
         os.path.join(OUTDIR, f"italia_{step_h:03d}.webp"), 
         dpi=120, 
         bbox_inches='tight',
-        pil_kwargs={'quality': 80}
+        pil_kwargs={'quality': 70}
     )
     plt.close()
     print(f"✅ Mappa Italia +{step_h}h completata")
