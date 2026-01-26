@@ -27,6 +27,7 @@ import pytz
 # Filtra warning non critici per pulire il log di GitHub
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 # ==================== CONFIGURAZIONE PATH ====================
 # Percorsi relativi alla posizione dello script (funziona ovunque)
@@ -164,6 +165,16 @@ GRIB_DIR = os.path.join(WORKDIR, f"{run_date}{run_hour}")
 os.makedirs(GRIB_DIR, exist_ok=True)
 print(f"🔵 Run: {run_date} {run_hour} UTC", flush=True)
 
+# Crea/Sovrascrivi il file datarun.txt
+run_id_string = f"{run_date}{run_hour}"
+txt_path = os.path.join(OUTDIR, "datarun.txt")
+try:
+    with open(txt_path, "w") as f:
+        f.write(run_id_string)
+    print(f"📄 File info run creato: {run_id_string}")
+except Exception as e:
+    print(f"⚠️ Impossibile creare datarun.txt: {e}")
+
 run_datetime_obj = datetime.strptime(f"{run_date}{run_hour}", "%Y%m%d%H").replace(tzinfo=timezone.utc)
 
 # ==================== DOWNLOAD ====================
@@ -226,13 +237,22 @@ def open_grib_safe(token, short_name_hint, extra_filter=None):
     if not files: print(f"❌ Manca {token}", flush=True); sys.exit(1)
     filt = extra_filter if extra_filter else {}
     try:
-        ds = xr.open_mfdataset(files, engine="cfgrib", combine="by_coords", backend_kwargs={"filter_by_keys": filt, "indexpath": ""})
+        # MODIFICA FONDAMENTALE: combine='nested' e concat_dim='step'
+        # Questo risolve l'errore di concatenazione quando mancano coordinate dimensionali comuni
+        ds = xr.open_mfdataset(
+            files, 
+            engine="cfgrib", 
+            combine="nested", 
+            concat_dim="step", 
+            backend_kwargs={"filter_by_keys": filt, "indexpath": ""}
+        )
+        
         if short_name_hint in ds: return ds[short_name_hint]
         for c in ["prmsl", "pmsl"]:
             if c in ds: print(f"⚠️ Uso '{c}' per {token}", flush=True); return ds[c]
         if len(ds.data_vars) == 1: return ds[list(ds.data_vars)[0]]
         print(f"❌ Variabile {short_name_hint} non trovata in {token}", flush=True); sys.exit(1)
-    except Exception as e: print(f"❌ Errore {token}: {e}", flush=True); sys.exit(1)
+    except Exception as e: print(f"❌ Errore apertura {token}: {e}", flush=True); sys.exit(1)
 
 # ==================== CARICAMENTO DATI ====================
 print("\n📂 Caricamento e Conversione Unità...", flush=True)
@@ -305,8 +325,11 @@ def add_mslp(ax, msl_da):
                     levels=levels, colors="k", linewidths=lws, alpha=0.9)
     ax.clabel(cs, fmt="%d", fontsize=8, inline=True, colors='k')
 
-def save_plot(name): 
-    plt.savefig(name, dpi=120, bbox_inches="tight")
+def save_plot(name):
+    # Forza estensione .webp e quality 80
+    if name.endswith(".png"):
+        name = name.replace(".png", ".webp")
+    plt.savefig(name, dpi=120, quality=80, bbox_inches="tight")
     plt.close()
 
 def wetbulb_stull(t, rh):
@@ -415,21 +438,21 @@ for idx, t_val in enumerate(times):
     cf = ax.contourf(t2.longitude, t2.latitude, t2, levels=boundaries_t, cmap=cmap_t, norm=norm_t, extend="both")
     add_mslp(ax, msl_s)
     finalize_plot(fig, ax, cf, run_datetime_obj, valid_dt_obj, "Temperatura 2m", "- MSLP", "Temperatura (°C)", explicit_ticks=ticks_t_lines)
-    save_plot(os.path.join(OUTDIR, f"T2M_{step_str}.png"))
+    save_plot(os.path.join(OUTDIR, f"T2M_{step_str}.webp"))
 
     # PLOT 2: PREC
     fig, ax = setup_map()
     cf = ax.contourf(prec_plot.longitude, prec_plot.latitude, prec_plot, levels=boundaries_p, cmap=cmap_p, norm=norm_p, extend="max")
     add_mslp(ax, msl_s)
     finalize_plot(fig, ax, cf, run_datetime_obj, valid_dt_obj, "Precipitazione Oraria", "- MSLP", "Precipitazione Totale (mm)", boundaries_p)
-    save_plot(os.path.join(OUTDIR, f"PREC_{step_str}.png"))
+    save_plot(os.path.join(OUTDIR, f"PREC_{step_str}.webp"))
 
     # PLOT 3: SNOW
     fig, ax = setup_map()
     cf = ax.contourf(new_snow_plot.longitude, new_snow_plot.latitude, new_snow_plot, levels=boundaries_snow, cmap=cmap_snow, norm=norm_snow, extend="max")
     add_mslp(ax, msl_s)
     finalize_plot(fig, ax, cf, run_datetime_obj, valid_dt_obj, "Neve Oraria", "- MSLP", "Neve (cm)", boundaries_snow)
-    save_plot(os.path.join(OUTDIR, f"SNOW_{step_str}.png"))
+    save_plot(os.path.join(OUTDIR, f"SNOW_{step_str}.webp"))
 
     # PLOT 3-BIS: SNOWPACK
     snowpack_plot = round_prec_data(snowpack)
@@ -437,7 +460,7 @@ for idx, t_val in enumerate(times):
     cf = ax.contourf(snowpack_plot.longitude, snowpack_plot.latitude, snowpack_plot, levels=boundaries_snow_cum, cmap=cmap_snow_cum, norm=norm_snow_cum, extend="max")
     add_mslp(ax, msl_s)
     finalize_plot(fig, ax, cf, run_datetime_obj, valid_dt_obj, "Neve fresca cumulata", "- MSLP", "Neve al suolo (cm)", boundaries_snow_cum)
-    save_plot(os.path.join(OUTDIR, f"SNOWPACK_{step_str}.png"))
+    save_plot(os.path.join(OUTDIR, f"SNOWPACK_{step_str}.webp"))
 
     # PLOT 4: CAPE
     fig, ax = setup_map()
@@ -445,14 +468,14 @@ for idx, t_val in enumerate(times):
     add_mslp(ax, msl_s)
     ax.quiver(u7.longitude[::12], u7.latitude[::12], u7[::12,::12], v7[::12,::12], scale=1000, width=0.0012, color="#333333", alpha=0.9)
     finalize_plot(fig, ax, cf, run_datetime_obj, valid_dt_obj, "CAPE", "- MSLP - Vento 700hPa", "CAPE (J/kg)", boundaries_cape)
-    save_plot(os.path.join(OUTDIR, f"CAPE_{step_str}.png"))
+    save_plot(os.path.join(OUTDIR, f"CAPE_{step_str}.webp"))
 
     # PLOT 5: RH
     fig, ax = setup_map()
     cf = ax.contourf(rh.longitude, rh.latitude, rh, levels=boundaries_rh, cmap=cmap_rh, norm=norm_rh, extend="max")
     add_mslp(ax, msl_s)
     finalize_plot(fig, ax, cf, run_datetime_obj, valid_dt_obj, "Umidità Relativa", "- MSLP", "Umidità relativa (%)", boundaries_rh)
-    save_plot(os.path.join(OUTDIR, f"RH_{step_str}.png"))
+    save_plot(os.path.join(OUTDIR, f"RH_{step_str}.webp"))
 
     # PLOT 6: WIND
     fig, ax = setup_map()
@@ -460,14 +483,14 @@ for idx, t_val in enumerate(times):
     add_mslp(ax, msl_s)
     ax.quiver(u.longitude[::12], u.latitude[::12], u[::12,::12], v[::12,::12], scale=600, width=0.0015, color="k", alpha=0.8)
     finalize_plot(fig, ax, cf, run_datetime_obj, valid_dt_obj, "Vento 10m", "+ MSLP", "Intensità del vento (km/h)", boundaries_w)
-    save_plot(os.path.join(OUTDIR, f"WIND_{step_str}.png"))
+    save_plot(os.path.join(OUTDIR, f"WIND_{step_str}.webp"))
 
     # PLOT 8: ZERO
     fig, ax = setup_map()
     cf = ax.contourf(zt_val.longitude, zt_val.latitude, zt_val, levels=boundaries_zt, cmap=cmap_zt, norm=norm_zt, extend="max")
     add_mslp(ax, msl_s)
     finalize_plot(fig, ax, cf, run_datetime_obj, valid_dt_obj, "Altezza Zero Termico", "- MSLP", "Altitudine (m)", boundaries_zt)
-    save_plot(os.path.join(OUTDIR, f"ZERO_{step_str}.png"))
+    save_plot(os.path.join(OUTDIR, f"ZERO_{step_str}.webp"))
 
 
 # ==================== PLOT FINALI CUMULATI ====================
@@ -482,14 +505,14 @@ tp_total_plot = round_prec_data(tp_total_run)
 fig, ax = setup_map()
 cf = ax.contourf(tp_total_plot.longitude, tp_total_plot.latitude, tp_total_plot.squeeze(), levels=boundaries_p_cum, cmap=cmap_p_cum, norm=norm_p_cum, extend="max")
 finalize_plot(fig, ax, cf, run_datetime_obj, last_time_dt, "Precipitazione Totale Cumulata", "", "Precipitazione Totale (mm)", boundaries_p_cum)
-save_plot(os.path.join(OUTDIR, "PREC_CUM_TOTALE_RUN.png"))
+save_plot(os.path.join(OUTDIR, "PREC_CUM_TOTALE_RUN.webp"))
 
 # 2. SNOWPACK TOTALE
 snowpack_tot_plot = round_prec_data(snowpack)
 fig, ax = setup_map()
 cf = ax.contourf(snowpack_tot_plot.longitude, snowpack_tot_plot.latitude, snowpack_tot_plot.squeeze(), levels=boundaries_snow_cum, cmap=cmap_snow_cum, norm=norm_snow_cum, extend="max")
 finalize_plot(fig, ax, cf, run_datetime_obj, last_time_dt, "Neve fresca cumulata", "", "Neve al suolo (cm)", boundaries_snow_cum)
-save_plot(os.path.join(OUTDIR, "SNOWPACK_TOT.png"))
+save_plot(os.path.join(OUTDIR, "SNOWPACK_TOT.webp"))
 
 # 3. GIORNALIERI
 daily_prec = tp.resample(time="1D").sum()
@@ -503,7 +526,7 @@ for idx, t_day in enumerate(daily_prec.time.values):
     fig, ax = setup_map()
     cf = ax.contourf(prec_day_plot.longitude, prec_day_plot.latitude, prec_day_plot.squeeze(), levels=boundaries_p_cum, cmap=cmap_p_cum, norm=norm_p_cum, extend="max")
     finalize_plot(fig, ax, cf, run_datetime_obj, ts, "Precipitazione Totale Cumulata", "Giornaliera", "Precipitazione Totale giornaliera (mm)", boundaries_p_cum)
-    save_plot(os.path.join(OUTDIR, f"PREC_CUM_DAY_{day_idx_str}.png"))
+    save_plot(os.path.join(OUTDIR, f"PREC_CUM_DAY_{day_idx_str}.webp"))
 
 # 4. TMIN / TMAX / RAFFICA
 days = np.unique(t2m.time.dt.floor("D"))
@@ -526,7 +549,7 @@ for idx, day in enumerate(days):
         ax.clabel(cs, inline=True, fontsize=7, fmt='%d') # Aggiunge etichette piccole
         
         finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Temperatura Minima", "Giornaliera", "Temperatura (°C)", explicit_ticks=ticks_t_lines)
-        save_plot(os.path.join(OUTDIR, f"TMIN_DAY_{day_idx_str}.png"))
+        save_plot(os.path.join(OUTDIR, f"TMIN_DAY_{day_idx_str}.webp"))
         
         # --- TMAX ---
         t_max_val = t_day.max("time")
@@ -538,7 +561,7 @@ for idx, day in enumerate(days):
         ax.clabel(cs, inline=True, fontsize=7, fmt='%d') # Aggiunge etichette piccole
         
         finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Temperatura Massima", "Giornaliera", "Temperatura (°C)", explicit_ticks=ticks_t_lines)
-        save_plot(os.path.join(OUTDIR, f"TMAX_DAY_{day_idx_str}.png"))
+        save_plot(os.path.join(OUTDIR, f"TMAX_DAY_{day_idx_str}.webp"))
 
         
         # RAFFICA
@@ -549,6 +572,6 @@ for idx, day in enumerate(days):
             cf = ax.contourf(g_max_val.longitude, g_max_val.latitude, g_max_val, levels=boundaries_g, cmap=cmap_g, norm=norm_g, extend="max")
             ax.contour(g_max_val.longitude, g_max_val.latitude, g_max_val, levels=[50, 100], colors="black", linewidths=0.3, alpha=0.5)
             finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Raffica di vento massima", "Giornaliera", "Intensità della raffica (km/h)", explicit_ticks=boundaries_g)
-            save_plot(os.path.join(OUTDIR, f"GUST_MAX_DAY_{day_idx_str}.png"))
+            save_plot(os.path.join(OUTDIR, f"GUST_MAX_DAY_{day_idx_str}.webp"))
 
 print("\n✅ Finito!", flush=True)
