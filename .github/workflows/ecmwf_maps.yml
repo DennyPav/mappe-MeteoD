@@ -76,9 +76,10 @@ jobs:
 
           echo "Inizio upload..."
 
+          # --include modificato per accettare txt, webp e png
           rclone copy "$LOCAL_DIR" "${REMOTE_NAME}:" \
             --drive-root-folder-id "$DRIVE_ID" \
-            --include "*.png" \
+            --include "*.{txt,webp,png}" \
             --transfers 8 \
             --verbose
 
