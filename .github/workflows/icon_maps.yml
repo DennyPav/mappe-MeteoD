@@ -73,9 +73,11 @@ jobs:
 
           echo "Inizio upload su cartella ID: $ICON_DRIVE_ID"
 
+          # --include accetta pattern multipli con le parentesi graffe
+          # Carica .txt (datarun), .webp (nuove mappe) e .png (vecchie mappe o backup)
           rclone copy "$LOCAL_DIR" "${REMOTE_NAME}:" \
             --drive-root-folder-id "$ICON_DRIVE_ID" \
-            --include "*.png" \
+            --include "*.{txt,webp,png}" \
             --transfers 8 \
             --verbose
 
