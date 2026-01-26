@@ -338,7 +338,12 @@ for idx, step_td in enumerate(ref_steps):
     cbar = plt.colorbar(cf, orientation='horizontal', pad=0.01, shrink=0.8, label="Temperatura (°C)", ticks=np.arange(-44,45,4))
     cbar.ax.tick_params(labelsize=8)
     
-    plt.savefig(os.path.join(OUTDIR, f"T850_GH500_{step_h:03d}.webp"), dpi=120, quality=80, bbox_inches='tight')
+    plt.savefig(
+        os.path.join(OUTDIR, f"T850_GH500_{step_h:03d}.webp"), 
+        dpi=120, 
+        bbox_inches='tight',
+        pil_kwargs={'quality': 80}
+    )
     plt.close()
 
     # 2. T500 + GH500
@@ -354,7 +359,12 @@ for idx, step_td in enumerate(ref_steps):
     cbar = plt.colorbar(cf, orientation='horizontal', pad=0.01, shrink=0.7, label="Temperatura (°C)", ticks=np.arange(-44,45,4))
     cbar.ax.tick_params(labelsize=8)
     
-    plt.savefig(os.path.join(OUTDIR, f"T500_GH500_{step_h:03d}.webp"), dpi=120, quality=80, bbox_inches='tight')
+    plt.savefig(
+        os.path.join(OUTDIR, f"T500_GH500_{step_h:03d}.webp"), 
+        dpi=120, 
+        bbox_inches='tight',
+        pil_kwargs={'quality': 80}
+    )
     plt.close()
 
     # 3. VENTO 500
@@ -368,7 +378,12 @@ for idx, step_td in enumerate(ref_steps):
     cbar = plt.colorbar(cf, orientation='horizontal', pad=0.01, shrink=0.7, label="Intensità del vento (km/h)")
     cbar.ax.tick_params(labelsize=8)
     
-    plt.savefig(os.path.join(OUTDIR, f"WIND500_{step_h:03d}.webp"), dpi=120, quality=80, bbox_inches='tight')
+    plt.savefig(
+        os.path.join(OUTDIR, f"WIND500_{step_h:03d}.webp"), 
+        dpi=120, 
+        bbox_inches='tight',
+        pil_kwargs={'quality': 80}
+    )
     plt.close()
 
     # 4. RH 700
@@ -392,7 +407,12 @@ for idx, step_td in enumerate(ref_steps):
     cbar_wind = fig.colorbar(sm_wind, cax=cax_wind, orientation='horizontal', label="Intensità del vento (km/h)")
     cbar_wind.ax.tick_params(labelsize=8)
     
-    plt.savefig(os.path.join(OUTDIR, f"RH700_{step_h:03d}.webp"), dpi=120, quality=80, bbox_inches='tight')
+    plt.savefig(
+        os.path.join(OUTDIR, f"RH700_{step_h:03d}.webp"), 
+        dpi=120, 
+        bbox_inches='tight',
+        pil_kwargs={'quality': 80}
+    )
     plt.close()
 
     # 5. JET 300
@@ -406,7 +426,12 @@ for idx, step_td in enumerate(ref_steps):
     cbar = plt.colorbar(cf, orientation='horizontal', pad=0.01, shrink=0.7, label="Intensità del vento (km/h)")
     cbar.ax.tick_params(labelsize=8)
     
-    plt.savefig(os.path.join(OUTDIR, f"JET300_{step_h:03d}.webp"), dpi=120, quality=80, bbox_inches='tight')
+    plt.savefig(
+        os.path.join(OUTDIR, f"JET300_{step_h:03d}.webp"), 
+        dpi=120, 
+        bbox_inches='tight',
+        pil_kwargs={'quality': 80}
+    )
     plt.close()
 
     # 7. PRECIP + MSL
@@ -424,7 +449,12 @@ for idx, step_td in enumerate(ref_steps):
         cbar.ax.set_xticklabels(tp_labels)
         cbar.ax.tick_params(labelsize=8)
         
-        plt.savefig(os.path.join(OUTDIR, f"PREC_MSL_{step_h:03d}.webp"), dpi=120, quality=80, bbox_inches='tight')
+        plt.savefig(
+            os.path.join(OUTDIR, f"PREC_MSL_{step_h:03d}.webp"), 
+            dpi=120, 
+            bbox_inches='tight',
+            pil_kwargs={'quality': 80}
+        )
         plt.close()
 
     # 8. NEVE
@@ -442,7 +472,12 @@ for idx, step_td in enumerate(ref_steps):
         cbar.ax.set_xticklabels(snow_labels)
         cbar.ax.tick_params(labelsize=8)
         
-        plt.savefig(os.path.join(OUTDIR, f"SNOWPACK_MSL_{step_h:03d}.webp"), dpi=120, quality=80, bbox_inches='tight')
+        plt.savefig(
+            os.path.join(OUTDIR, f"SNOWPACK_MSL_{step_h:03d}.webp"), 
+            dpi=120, 
+            bbox_inches='tight',
+            pil_kwargs={'quality': 80}
+        )
         plt.close()
 
     print(f"✅ Step +{step_h}h completato")
@@ -502,7 +537,12 @@ for idx, step_td in enumerate(ref_steps):
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     
-    plt.savefig(os.path.join(OUTDIR, f"italia_{step_h:03d}.webp"), dpi=120, quality=80, bbox_inches='tight')
+    plt.savefig(
+        os.path.join(OUTDIR, f"italia_{step_h:03d}.webp"), 
+        dpi=120, 
+        bbox_inches='tight',
+        pil_kwargs={'quality': 80}
+    )
     plt.close()
     print(f"✅ Mappa Italia +{step_h}h completata")
 
