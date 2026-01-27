@@ -6,7 +6,7 @@ import sys
 import warnings
 import matplotlib
 
-# --- 1. CONFIGURAZIONE BACKEND PER GITHUB ACTIONS ---
+# --- 1. CONFIGURAZIONE BACKEND PER GITHUB ACTIONS --
 # Forza backend non interattivo per evitare crash "headless"
 matplotlib.use('Agg')
 
