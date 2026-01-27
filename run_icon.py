@@ -234,34 +234,72 @@ def to_forecast_time(da):
 
 def open_grib_safe(token, short_name_hint, extra_filter=None):
     files = list_files(token)
-    if not files: print(f"❌ Manca {token}", flush=True); sys.exit(1)
-    filt = extra_filter if extra_filter else {}
+    if not files: 
+        print(f"❌ Manca {token}", flush=True)
+        sys.exit(1)
     
+    # 1. Prepare filters
+    # Start with standard filters (typeOfLevel, level, stepType)
+    filt = {"stepType": "instant"}  # Default for most ICON vars
+    if "TOT_PREC" in token or "VMAX" in token:
+        # Accumulations/max often have different stepTypes
+        filt = {} 
+        
+    # Merge with user-provided extra_filter (e.g., {'level': 700})
+    if extra_filter:
+        filt.update(extra_filter)
+
     try:
-        # RIPRISTINATA APERTURA "CLASSICA" MA ROBUSTA
-        # combine='by_coords' è il default e gestisce meglio coordinate temporali già presenti
+        # 2. Open Dataset with strict filtering
+        # limiting the read to SPECIFIC keys prevents xarray from
+        # trying to merge incompatible levels (e.g. 500hPa and 700hPa)
         ds = xr.open_mfdataset(
             files, 
             engine="cfgrib", 
-            combine="by_coords", 
-            backend_kwargs={"filter_by_keys": filt, "indexpath": ""}
+            combine="nested", 
+            concat_dim="time",
+            parallel=False,
+            backend_kwargs={
+                "filter_by_keys": filt,
+                "indexpath": ""
+            }
         )
         
-        if short_name_hint in ds: return ds[short_name_hint]
-        for c in ["prmsl", "pmsl"]:
-            if c in ds: print(f"⚠️ Uso '{c}' per {token}", flush=True); return ds[c]
-        if len(ds.data_vars) == 1: return ds[list(ds.data_vars)[0]]
-        print(f"❌ Variabile {short_name_hint} non trovata in {token}", flush=True); sys.exit(1)
+        # 3. Rename/Standardize coordinates if needed
+        # (This helps if 'step' vs 'time' varies)
+        if "step" in ds.dims and "time" not in ds.dims:
+            ds = ds.rename({"step": "time"})
+
+        # 4. Variable Selection
+        if short_name_hint in ds: 
+            return ds[short_name_hint]
+        
+        # Fallback names
+        for c in ["prmsl", "pmsl", "u", "v", "w", "z"]:
+            if c in ds: 
+                print(f"⚠️ Uso '{c}' per {token}", flush=True) 
+                return ds[c]
+                
+        if len(ds.data_vars) == 1: 
+            return ds[list(ds.data_vars)[0]]
+            
+        print(f"❌ Variabile {short_name_hint} non trovata in {token}. Vars: {list(ds.data_vars)}", flush=True)
+        sys.exit(1)
         
     except Exception as e:
-        # Se fallisce by_coords (raro su file singoli), riprova in modo semplice
+        print(f"❌ Errore apertura {token}: {e}", flush=True)
+        # Debugging aid: print keys present in the first file
         try:
-             ds = xr.open_dataset(files[0], engine="cfgrib", backend_kwargs={"filter_by_keys": filt, "indexpath": ""})
-             if short_name_hint in ds: return ds[short_name_hint]
-             if len(ds.data_vars) == 1: return ds[list(ds.data_vars)[0]]
+            import cfgrib
+            print("   🔍 Debug Keys nel primo file:", flush=True)
+            with cfgrib.open_file(files[0]) as src:
+                for msg in src:
+                    print(f"   - Level: {msg.get('level', 'N/A')} | ShortName: {msg.get('shortName', 'N/A')}")
+                    break
         except:
-             pass
-        print(f"❌ Errore apertura {token}: {e}", flush=True); sys.exit(1)
+            pass
+        sys.exit(1)
+
 
 # ==================== CARICAMENTO DATI ====================
 print("\n📂 Caricamento e Conversione Unità...", flush=True)
@@ -276,10 +314,11 @@ v10 = to_forecast_time(open_grib_safe("V_10M", "10v"))
 vmax_10m = to_forecast_time(open_grib_safe("VMAX_10M", "fg10")) * 3.6 
 cape = to_forecast_time(open_grib_safe("CAPE_ML", "cape"))
 zt = to_forecast_time(open_grib_safe("HZEROCL", "hzcl"))
-om700 = to_forecast_time(open_grib_safe("OMEGA", "w", {"typeOfLevel": "isobaricInhPa"}))
-z500 = to_forecast_time(open_grib_safe("FI", "z", {"typeOfLevel": "isobaricInhPa"})) / 9.80665
-u700 = to_forecast_time(open_grib_safe("U", "u", {"typeOfLevel": "isobaricInhPa", "level": 700}))
-v700 = to_forecast_time(open_grib_safe("V", "v", {"typeOfLevel": "isobaricInhPa", "level": 700}))
+om700 = to_forecast_time(open_grib_safe("OMEGA", "w", {"level": 700, "typeOfLevel": "isobaricInhPa"}))
+z500 = to_forecast_time(open_grib_safe("FI", "z", {"level": 500, "typeOfLevel": "isobaricInhPa"}))
+u700 = to_forecast_time(open_grib_safe("U", "u", {"level": 700, "typeOfLevel": "isobaricInhPa"}))
+v700 = to_forecast_time(open_grib_safe("V", "v", {"level": 700, "typeOfLevel": "isobaricInhPa"}))
+
 
 # ==================== UTILS MAPPE E PLOT ====================
 print("🗺️ Caricamento shapefile...", flush=True)
