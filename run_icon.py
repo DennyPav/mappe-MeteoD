@@ -69,8 +69,10 @@ norm_t = BoundaryNorm(boundaries_t, cmap_t.N)
 ticks_t_lines = [b for b in boundaries_t if b % 4 == 0]
 
 # 2. PRECIPITAZIONE ISTANTANEA
-colors_p = ["#ffffff","#bfe7f9","#7ed1f3","#00a6e6","#003f7b","#f4f89f","#e6ed3b",
-            "#ffd800","#ff9500","#ff2f00","#b40a00","#840000","#dd007f"]
+colors_p = ["#ffffff", "#C2E7FF", "#47BFFF", "#0055ff", "#0000aa", 
+            "#32cd32", "#008000", "#ffff00", "#ff9900", 
+            "#b30000", "#ff00ff", 
+            "#4b0082"]
 boundaries_p = [0,0.1,0.5,1,3,5,7,10,15,20,30,40,50]
 cmap_p = ListedColormap(colors_p)
 cmap_p.set_under("none")
