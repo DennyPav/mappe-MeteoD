@@ -12,6 +12,8 @@ import cartopy.feature as cfeature
 from matplotlib.colors import ListedColormap, BoundaryNorm
 from ecmwf.opendata import Client
 import pytz
+import boto3        # <--- AGGIUNGI QUESTO
+import mimetypes    # <--- AGGIUNGI QUESTO
 
 warnings.filterwarnings("ignore")
 
@@ -547,5 +549,72 @@ for idx, step_td in enumerate(ref_steps):
     )
     plt.close()
     print(f"✅ Mappa Italia +{step_h}h completata")
+
+# ==================== UPLOAD SU CLOUDFLARE R2 ====================
+
+def upload_to_r2():
+    print("\n☁️ Avvio upload su Cloudflare R2...", flush=True)
+    
+    # 1. RECUPERA CREDENZIALI (Da Variabili d'Ambiente)
+    # Assicurati che queste variabili siano settate nel workflow di GitHub Actions
+    R2_ENDPOINT = os.environ.get("R2_ENDPOINT_URL") 
+    R2_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID")
+    R2_SECRET = os.environ.get("R2_SECRET_ACCESS_KEY")
+    BUCKET_NAME = "mappe"  # <--- INSERISCI IL NOME DEL TUO BUCKET QUI
+    
+    # Cartella remota specifica per ECMWF
+    REMOTE_FOLDER = "ECMWF"
+
+    if not all([R2_ENDPOINT, R2_KEY_ID, R2_SECRET, BUCKET_NAME]):
+        print("⚠️ Credenziali R2 mancanti. Salto l'upload.", flush=True)
+        return
+
+    try:
+        # 2. INIZIALIZZA CLIENT S3
+        s3 = boto3.client(
+            service_name='s3',
+            endpoint_url=R2_ENDPOINT,
+            aws_access_key_id=R2_KEY_ID,
+            aws_secret_access_key=R2_SECRET,
+            region_name='auto'
+        )
+
+        # 3. ELENCA E CARICA I FILE
+        # Carichiamo solo i file finali (.webp e .txt), ignorando i .grib2 scaricati
+        files = [f for f in os.listdir(OUTDIR) 
+                 if os.path.isfile(os.path.join(OUTDIR, f)) 
+                 and f.endswith(('.webp', '.txt'))]
+        
+        for filename in files:
+            local_path = os.path.join(OUTDIR, filename)
+            remote_key = f"{REMOTE_FOLDER}/{filename}"
+            
+            # Determina il Content-Type corretto
+            content_type, _ = mimetypes.guess_type(local_path)
+            if content_type is None:
+                content_type = 'application/octet-stream'
+            
+            print(f"   ⬆️ Upload: {filename} -> {remote_key}", end="... ", flush=True)
+            
+            s3.upload_file(
+                local_path, 
+                BUCKET_NAME, 
+                remote_key,
+                ExtraArgs={
+                    'ContentType': content_type,
+                    'CacheControl': 'max-age=300'
+                }
+            )
+            print("OK", flush=True)
+            
+        print("✅ Upload completato con successo!", flush=True)
+
+    except Exception as e:
+        print(f"\n❌ Errore durante l'upload R2: {e}", flush=True)
+
+# Esegui la funzione di upload solo se lo script è il main
+if __name__ == "__main__":
+    upload_to_r2()
+
 
 print("🏁 Elaborazione terminata!")
