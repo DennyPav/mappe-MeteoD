@@ -3,7 +3,7 @@
 import os
 import sys
 import warnings
-import json  # <--- NUOVO IMPORT
+import json
 from datetime import datetime, timedelta
 import numpy as np
 import xarray as xr
@@ -50,15 +50,6 @@ RUN_ID_STRING = f"{DATE_TAG}{run_hour:02d}"
 JSON_RUN_DATE = run_dt.strftime("%Y%m%d_%H%M") 
 
 print(f"🚀 Inizio elaborazione run {DATE_TAG} {RUN_STR} (ID: {RUN_ID_STRING})")
-
-# ==================== GENERA FILE TXT INFO RUN (Legacy) ====================
-# Lo manteniamo per sicurezza, ma il JSON sarà il principale
-txt_path = os.path.join(OUTDIR, "datarun.txt")
-try:
-    with open(txt_path, "w") as f:
-        f.write(RUN_ID_STRING)
-except Exception as e:
-    pass
 
 # ==================== LISTA PER IL JSON ====================
 # Qui accumuleremo tutti i file generati
@@ -166,10 +157,6 @@ except Exception as e:
 # ==================== DOMINIO & COLORMAPS ====================
 nord, sud, ovest, est = 70, 28, -28, 48
 
-# (COLORMAPS INVARIATE - Tagliate per brevità, mantieni le tue originali)
-# ... T850, PRECIP, NEVE, RH, VENTO ...
-# Assicurati di copiare le tue definizioni di colormap qui
-# -----------------------------------------------------------------
 colors_t = ["#ad99ad", "#948094", "#7a667a", "#614D61", "#473347", "#3D1A57", "#330066", "#460073", "#59007f", "#6C00BF", "#7f00ff", "#4040FF", "#007fff", "#00A6FF", "#00ccff", "#00E6FF", "#00ffff", "#13F2CC", "#26e599", "#56C943", "#66bf26", "#93D226", "#bfe526", "#EFF969", "#ffff7f", "#FFFF5C", "#ffff00", "#FFEC00", "#ffd900", "#FFC500", "#ffb000", "#FF9100", "#ff7200", "#FF3900", "#ff0000", "#E60000", "#cc0000", "#A60016", "#7f002c", "#A61F4D", "#cc3d6e", "#E61FB7", "#ff00ff", "#FF40FF", "#ff7fff", "#ffbfff"]
 boundaries_t = np.arange(-46, 48, 2)
 cmap_t = ListedColormap(colors_t)
@@ -209,14 +196,19 @@ def setup_map():
     ax.add_feature(cfeature.BORDERS, edgecolor='black', linewidths=0.4)
     return fig, ax
 
-def add_title(ax, main_title, valid_dt, lead_str):
+# NUOVA FUNZIONE ADD_TITLE SICURA (Evita ParseException)
+def add_title(ax, main_title_bold, valid_dt, lead_str):
     valid_str = valid_dt.strftime("%d/%m/%Y")
     valid_str_2 = valid_dt.strftime("%H")
-    valid_txt = rf"\bf{{{valid_str}}}"
-    valid_txt_2 = rf"\bf{{{valid_str_2} {lead_str}}}"
-    title = (rf"$\bf{{{main_title}}}$"
-             f"\n$\\bf{{ECMWF\\ IFS}}$ run: {run_dt.strftime('%d/%m/%Y')} {run_hour:02d}z "
-             f"| validità: ${valid_txt}$ ${valid_txt_2}$")
+    
+    # Costruiamo il titolo LaTeX concatenando stringhe raw (r"...")
+    # Questo evita che Python interpreti male i backslash
+    title = (
+        r"$\bf{" + main_title_bold + r"}$" + "\n" +
+        r"$\bf{ECMWF\ IFS}$ run: " + run_dt.strftime('%d/%m/%Y') + f" {run_hour:02d}z | validità: " +
+        r"$\bf{" + valid_str + r"}$" + " " +
+        r"$\bf{" + valid_str_2 + " " + lead_str + r"}$"
+    )
     ax.set_title(title)
 
 # ==================== MAIN LOOP ====================
@@ -296,6 +288,8 @@ for idx, step_td in enumerate(ref_steps):
 
     # --- PLOT MAPS & ADD TO JSON LIST ---
     
+    # NOTA: Uso r"..." per le stringhe con backslash (LaTeX) per evitare crash
+    
     # 1. T850
     fname = f"T850_GH500_{step_h:03d}.webp"
     fig, ax = setup_map()
@@ -308,13 +302,15 @@ for idx, step_td in enumerate(ref_steps):
     gh_lw = [1.2 if (abs(l-544)%16==0) else 0.6 for l in gh_levels]
     cs_gh = ax.contour(gh500.longitude, gh500.latitude, gh500, levels=gh_levels, colors='black', linewidths=gh_lw)
     ax.clabel(cs_gh, fmt='%d', fontsize=5)
-    add_title(ax, "Temperatura\ 850hPa\ -\ Altezza\ di\ Geopotenziale\ 500\ hPa", valid_dt, lead_str)
+    
+    add_title(ax, r"Temperatura\ 850hPa\ -\ Altezza\ di\ Geopotenziale\ 500\ hPa", valid_dt, lead_str)
+    
     cbar = plt.colorbar(cf, orientation='horizontal', pad=0.01, shrink=0.8, label="Temperatura (°C)", ticks=np.arange(-44,45,4))
     cbar.ax.tick_params(labelsize=8)
     plt.savefig(os.path.join(OUTDIR, fname), dpi=120, bbox_inches='tight', pil_kwargs={'quality': 65})
     plt.close()
     
-    generated_files.append({"name": fname, "step": step_h}) # <--- AGGIUNTA
+    generated_files.append({"name": fname, "step": step_h})
 
     # 2. T500
     fname = f"T500_GH500_{step_h:03d}.webp"
@@ -326,13 +322,15 @@ for idx, step_td in enumerate(ref_steps):
     ax.clabel(cs_t2, fmt='%d', fontsize=4)
     cs_gh = ax.contour(gh500.longitude, gh500.latitude, gh500, levels=gh_levels, colors='black', linewidths=gh_lw)
     ax.clabel(cs_gh, fmt='%d', fontsize=5)
-    add_title(ax, "Temperatura\ 500hPa\ -\ Altezza\ di\ Geopotenziale\ 500\ hPa", valid_dt, lead_str)
+    
+    add_title(ax, r"Temperatura\ 500hPa\ -\ Altezza\ di\ Geopotenziale\ 500\ hPa", valid_dt, lead_str)
+    
     cbar = plt.colorbar(cf, orientation='horizontal', pad=0.01, shrink=0.7, label="Temperatura (°C)", ticks=np.arange(-44,45,4))
     cbar.ax.tick_params(labelsize=8)
     plt.savefig(os.path.join(OUTDIR, fname), dpi=120, bbox_inches='tight', pil_kwargs={'quality': 65})
     plt.close()
 
-    generated_files.append({"name": fname, "step": step_h}) # <--- AGGIUNTA
+    generated_files.append({"name": fname, "step": step_h})
 
     # 3. WIND500
     fname = f"WIND500_{step_h:03d}.webp"
@@ -341,13 +339,15 @@ for idx, step_td in enumerate(ref_steps):
     cs_gh = ax.contour(gh500.longitude, gh500.latitude, gh500, levels=gh_levels, colors='black', linewidths=gh_lw)
     ax.clabel(cs_gh, fmt='%d', fontsize=5)
     ax.quiver(u500.longitude[::6], u500.latitude[::6], u500[::6, ::6], v500[::6, ::6], scale=1200, width=0.001, headwidth=3, headlength=4, color='#333333', alpha=0.7)
-    add_title(ax, "Vento\ 500hPa\ -\ Altezza\ di\ Geopotenziale\ 500\ hPa", valid_dt, lead_str)
+    
+    add_title(ax, r"Vento\ 500hPa\ -\ Altezza\ di\ Geopotenziale\ 500\ hPa", valid_dt, lead_str)
+    
     cbar = plt.colorbar(cf, orientation='horizontal', pad=0.01, shrink=0.7, label="Intensità del vento (km/h)")
     cbar.ax.tick_params(labelsize=8)
     plt.savefig(os.path.join(OUTDIR, fname), dpi=120, bbox_inches='tight', pil_kwargs={'quality': 65})
     plt.close()
 
-    generated_files.append({"name": fname, "step": step_h}) # <--- AGGIUNTA
+    generated_files.append({"name": fname, "step": step_h})
 
     # 4. RH700
     fname = f"RH700_{step_h:03d}.webp"
@@ -359,7 +359,9 @@ for idx, step_td in enumerate(ref_steps):
     ax.clabel(cs_gh, fmt='%d', fontsize=5)
     ws700 = np.sqrt(u700**2 + v700**2) * 3.6
     ax.quiver(u700.longitude[::7], v700.latitude[::7], u700[::7, ::7], v700[::7, ::7], ws700[::7, ::7], scale=1000, width=0.0015, headwidth=3, headlength=4, cmap=cmap_w, alpha=0.9)
-    add_title(ax, "Umidità\ Relativa\ 700hPa\ -\ Vento\ 700hPa\ -\ Altezza\ di\ Geopotenziale\ 700hPa", valid_dt, lead_str)
+    
+    add_title(ax, r"Umidità\ Relativa\ 700hPa\ -\ Vento\ 700hPa\ -\ Altezza\ di\ Geopotenziale\ 700hPa", valid_dt, lead_str)
+    
     cax_rh = fig.add_axes([0.17, 0.2, 0.3, 0.02])
     cax_wind = fig.add_axes([0.55, 0.2, 0.3, 0.02])
     cbar_rh = fig.colorbar(cf_rh, cax=cax_rh, orientation='horizontal', label="Umidità relativa (%)", ticks=[65, 80, 95, 100])
@@ -372,7 +374,7 @@ for idx, step_td in enumerate(ref_steps):
     plt.savefig(os.path.join(OUTDIR, fname), dpi=120, bbox_inches='tight', pil_kwargs={'quality': 65})
     plt.close()
 
-    generated_files.append({"name": fname, "step": step_h}) # <--- AGGIUNTA
+    generated_files.append({"name": fname, "step": step_h})
 
     # 5. JET300
     fname = f"JET300_{step_h:03d}.webp"
@@ -382,13 +384,15 @@ for idx, step_td in enumerate(ref_steps):
     gh_lw300 = [1.2 if (abs(l - 1000) % 20 == 0) else 0.6 for l in gh300_levs]
     cs_gh = ax.contour(gh300.longitude, gh300.latitude, gh300, levels=gh300_levs, colors='black', linewidths=gh_lw300)
     ax.clabel(cs_gh, fmt='%d', fontsize=5)
-    add_title(ax, "Jet\ Stream\ 300hPa\ -\ Altezza\ di\ Geopotenziale\ 300\ hPa", valid_dt, lead_str)
+    
+    add_title(ax, r"Jet\ Stream\ 300hPa\ -\ Altezza\ di\ Geopotenziale\ 300\ hPa", valid_dt, lead_str)
+    
     cbar = plt.colorbar(cf, orientation='horizontal', pad=0.01, shrink=0.7, label="Intensità del vento (km/h)")
     cbar.ax.tick_params(labelsize=8)
     plt.savefig(os.path.join(OUTDIR, fname), dpi=120, bbox_inches='tight', pil_kwargs={'quality': 65})
     plt.close()
 
-    generated_files.append({"name": fname, "step": step_h}) # <--- AGGIUNTA
+    generated_files.append({"name": fname, "step": step_h})
 
     # 6. PREC_MSL
     if idx > 0 and prec is not None:
@@ -399,7 +403,9 @@ for idx, step_td in enumerate(ref_steps):
         msl_lw = [1 if (abs(l-1010)%20==0) else 0.6 for l in msl_levels]
         cs_msl = ax.contour(msl.longitude, msl.latitude, msl, levels=msl_levels, colors='black', linewidths=msl_lw)
         ax.clabel(cs_msl, fmt='%d', fontsize=5)
-        add_title(ax, "Precipitazione\ Totale\ 3h\ -\ Pressione\ al\ livello\ del\ mare", valid_dt, lead_str)
+        
+        add_title(ax, r"Precipitazione\ Totale\ 3h\ -\ Pressione\ al\ livello\ del\ mare", valid_dt, lead_str)
+        
         tp_ticks = boundaries_p
         tp_labels = [str(t) if t < 1 else str(int(t)) for t in tp_ticks]
         cbar = plt.colorbar(cf, orientation='horizontal', pad=0.01, shrink=0.6, label="Precipitazione Totale 3h (mm)", ticks=tp_ticks)
@@ -408,7 +414,7 @@ for idx, step_td in enumerate(ref_steps):
         plt.savefig(os.path.join(OUTDIR, fname), dpi=120, bbox_inches='tight', pil_kwargs={'quality': 65})
         plt.close()
 
-        generated_files.append({"name": fname, "step": step_h}) # <--- AGGIUNTA
+        generated_files.append({"name": fname, "step": step_h})
 
     # 7. SNOWPACK
     if idx > 0 and snowpack is not None:
@@ -419,7 +425,9 @@ for idx, step_td in enumerate(ref_steps):
         msl_lw = [1 if (abs(l-1010)%20==0) else 0.6 for l in msl_levels]
         cs_msl = ax.contour(msl.longitude, msl.latitude, msl, levels=msl_levels, colors='black', linewidths=msl_lw)
         ax.clabel(cs_msl, fmt='%d', fontsize=5)
-        add_title(ax, "Neve\ fresca\ al\ suolo\ -\ Pressione\ al\ livello\ del\ mare", valid_dt, lead_str)
+        
+        add_title(ax, r"Neve\ fresca\ al\ suolo\ -\ Pressione\ al\ livello\ del\ mare", valid_dt, lead_str)
+        
         snow_ticks = boundaries_snow
         snow_labels = [str(t) if t < 1 else str(int(t)) for t in snow_ticks]
         cbar = plt.colorbar(cf, orientation='horizontal', pad=0.01, shrink=0.6, label="Neve fresca accumulata da inizio run (cm)", ticks=snow_ticks)
@@ -428,7 +436,7 @@ for idx, step_td in enumerate(ref_steps):
         plt.savefig(os.path.join(OUTDIR, fname), dpi=120, bbox_inches='tight', pil_kwargs={'quality': 65})
         plt.close()
 
-        generated_files.append({"name": fname, "step": step_h}) # <--- AGGIUNTA
+        generated_files.append({"name": fname, "step": step_h})
 
     print(f"✅ Step +{step_h}h completato")
     
@@ -456,7 +464,10 @@ for idx, step_td in enumerate(ref_steps):
     ax.clabel(cs_gh, fmt='%d', fontsize=8)
     ax.coastlines(linewidths=0.5)
     ax.add_feature(cfeature.BORDERS, edgecolor='black', linewidths=0.5)
+    
+    # Titolo Sicuro (LaTeX raw string)
     ax.set_title(r"$\bf{Temperatura\ 850\ hPa - Altezza\ di\ Geopotenziale\ 500\ hPa}$", fontsize=12)
+    
     cbar = plt.colorbar(cf, ax=ax, orientation='horizontal', pad=0.05, shrink=0.7, label=r"Temperatura (°C)", ticks=np.arange(-32, 33, 4))
     cbar.ax.tick_params(labelsize=8)
 
@@ -475,16 +486,23 @@ for idx, step_td in enumerate(ref_steps):
     ax.clabel(cs_msl, fmt='%d', fontsize=8)
     ax.coastlines(linewidths=0.5)
     ax.add_feature(cfeature.BORDERS, edgecolor='black', linewidths=0.5)
+    
+    # Titolo Sicuro
     ax.set_title(r"$\bf{Precipitazione\ 3h - Pressione\ al\ livello\ del\ mare}$", fontsize=12)
 
     valid_str = run_dt.strftime("%d/%m/%Y")
     valid_str_2 = valid_dt.strftime("%H") + f" (+{step_h}h)"
     timestep_date = valid_dt.strftime("%d/%m/%Y")
 
-    fig.suptitle(
-        fr"$\bf{{ECMWF\\ IFS}}$ run: {valid_str} {run_hour:02d}z | validità: {timestep_date} $\bf{{{valid_str_2}}}$",
-        fontsize=12
+    # TITOLO COMPLESSIVO SICURO (SOLUZIONE AL CRASH)
+    title_latex = (
+        r"$\bf{ECMWF\ IFS}$" + 
+        f" run: {valid_str} {run_hour:02d}z | validità: {timestep_date} " + 
+        r"$\bf{" + valid_str_2 + r"}$"
     )
+
+    fig.suptitle(title_latex, fontsize=12)
+    
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.savefig(os.path.join(OUTDIR, fname), dpi=120, bbox_inches='tight', pil_kwargs={'quality': 65})
     plt.close()
@@ -495,7 +513,7 @@ for idx, step_td in enumerate(ref_steps):
 # ==================== SALVATAGGIO JSON FINALE ====================
 print("💾 Generazione file status_ecmwf.json...")
 json_data = {
-    "run_date": JSON_RUN_DATE,  # es: "20260130_1200"
+    "run_date": JSON_RUN_DATE,
     "base_path": "ECMWF",
     "files": generated_files
 }
@@ -529,7 +547,6 @@ def upload_to_r2():
             region_name='auto'
         )
 
-        # Includiamo anche il .json nella lista
         files = [f for f in os.listdir(OUTDIR) 
                  if os.path.isfile(os.path.join(OUTDIR, f)) 
                  and f.endswith(('.webp', '.txt', '.json'))]
@@ -542,12 +559,9 @@ def upload_to_r2():
             if content_type is None:
                 content_type = 'application/octet-stream'
             
-            # GESTIONE CACHE DIFFERENZIATA
             if filename.endswith(".json"):
-                # Il JSON deve essere sempre fresco per segnalare nuovi run
                 cache_control = "no-cache, no-store, must-revalidate"
             else:
-                # Le immagini possono essere cachate (verranno invalidate dal cambio signature nel JSON)
                 cache_control = "max-age=300"
 
             print(f"   ⬆️ Upload: {filename} -> {remote_key} [CC: {cache_control}]", end="... ", flush=True)
@@ -570,6 +584,5 @@ def upload_to_r2():
 
 if __name__ == "__main__":
     upload_to_r2()
-
 
 print("🏁 Elaborazione terminata!")
