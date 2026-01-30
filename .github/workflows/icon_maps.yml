@@ -33,52 +33,18 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
+          # Installa le dipendenze dal file
           pip install -r requirements.txt
 
-      # --- 2. SETUP RCLONE ---
-      
-      - name: Install rclone
-        run: curl https://rclone.org/install.sh | sudo bash
+      # --- 2. ESECUZIONE SCRIPT E UPLOAD ---
+      # Non serve più rclone, lo script Python fa tutto usando le variabili qui sotto
 
-      - name: Setup rclone config from secret
+      - name: Run ICON Generation Script & Upload R2
         env:
-          RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
+          # Queste variabili vengono lette da os.environ nel tuo script Python
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: |
-          mkdir -p /home/runner/.config/rclone
-          echo "${RCLONE_CONFIG}" > /home/runner/.config/rclone/rclone.conf
-          chmod 600 /home/runner/.config/rclone/rclone.conf
-
-      # --- 3. ESECUZIONE SCRIPT ---
-
-      - name: Run ICON Generation Script
-        run: |
-          # Esegue lo script che usa anche lo shapefile presente nel repo
+          # Esegue lo script che genera le mappe e le carica su R2
           python run_icon.py
-
-      # --- 4. UPLOAD SU DRIVE ---
-      
-      - name: Upload to Google Drive
-        env:
-          ICON_DRIVE_ID: ${{ secrets.ICON_GDRIVE_ID }}
-        run: |
-          REMOTE_NAME=$(grep -oP '^\[\K[^\]]+' /home/runner/.config/rclone/rclone.conf | head -n 1)
-          
-          # Cartella di output definita nello script Python
-          LOCAL_DIR="./icon_output"
-
-          if [ -z "$ICON_DRIVE_ID" ]; then
-            echo "❌ Errore: Il secret ICON_GDRIVE_ID non è impostato!"
-            exit 1
-          fi
-
-          echo "Inizio upload su cartella ID: $ICON_DRIVE_ID"
-
-          # --include accetta pattern multipli con le parentesi graffe
-          # Carica .txt (datarun), .webp (nuove mappe) e .png (vecchie mappe o backup)
-          rclone copy "$LOCAL_DIR" "${REMOTE_NAME}:" \
-            --drive-root-folder-id "$ICON_DRIVE_ID" \
-            --include "*.{txt,webp,png}" \
-            --transfers 8 \
-            --verbose
-
-          echo "✅ Upload completato!"
