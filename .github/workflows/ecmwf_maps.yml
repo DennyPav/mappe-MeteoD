@@ -2,8 +2,8 @@ name: ECMWF Maps Upload (R2)
 
 on:
   schedule:
-    - cron: "0 8 * * *"
-    - cron: "0 20 * * *"
+    - cron: "25 7 * * *"
+    - cron: "25 19 * * *"
   workflow_dispatch:
 
 jobs:
