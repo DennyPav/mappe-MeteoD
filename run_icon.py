@@ -5,6 +5,9 @@ import os
 import sys
 import warnings
 import matplotlib
+import pytz
+import boto3        # <--- AGGIUNGI QUESTO
+import mimetypes    # <--- AGGIUNGI QUESTO (per i corretti header HTTP)
 
 # --- 1. CONFIGURAZIONE BACKEND PER GITHUB ACTIONS ---
 # Forza backend non interattivo per evitare crash "headless"
@@ -591,3 +594,70 @@ for idx, day in enumerate(days):
             save_plot(os.path.join(OUTDIR, f"GUST_MAX_DAY_{day_idx_str}.webp"))
 
 print("\n✅ Finito!", flush=True)
+
+# ==================== UPLOAD SU CLOUDFLARE R2 ====================
+
+def upload_to_r2():
+    print("\n☁️ Avvio upload su Cloudflare R2...", flush=True)
+    
+    # 1. RECUPERA CREDENZIALI (Da Variabili d'Ambiente o stringhe dirette)
+    # IMPORTANTE: L'endpoint deve essere quello S3, non quello pubblico .dev
+    # Esempio: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+    R2_ENDPOINT = os.environ.get("R2_ENDPOINT_URL") 
+    R2_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID")
+    R2_SECRET = os.environ.get("R2_SECRET_ACCESS_KEY")
+    BUCKET_NAME = "mappe" 
+    
+    # Cartella remota specifica richiesta
+    REMOTE_FOLDER = "ICON-2I"
+
+    if not all([R2_ENDPOINT, R2_KEY_ID, R2_SECRET, BUCKET_NAME]):
+        print("⚠️ Credenziali R2 mancanti. Salto l'upload.", flush=True)
+        return
+
+    try:
+        # 2. INIZIALIZZA CLIENT S3
+        s3 = boto3.client(
+            service_name='s3',
+            endpoint_url=R2_ENDPOINT,
+            aws_access_key_id=R2_KEY_ID,
+            aws_secret_access_key=R2_SECRET,
+            region_name='auto' # R2 richiede 'auto' o 'us-east-1'
+        )
+
+        # 3. ELENCA E CARICA I FILE
+        files = [f for f in os.listdir(OUTDIR) if os.path.isfile(os.path.join(OUTDIR, f))]
+        
+        for filename in files:
+            local_path = os.path.join(OUTDIR, filename)
+            
+            # Definisce il percorso remoto: ICON-2I/nomefile.webp
+            remote_key = f"{REMOTE_FOLDER}/{filename}"
+            
+            # Determina il Content-Type (fondamentale per vedere l'immagine nel browser)
+            content_type, _ = mimetypes.guess_type(local_path)
+            if content_type is None:
+                content_type = 'application/octet-stream'
+            
+            print(f"   ⬆️ Upload: {filename} -> {remote_key} ({content_type})", end="... ", flush=True)
+            
+            s3.upload_file(
+                local_path, 
+                BUCKET_NAME, 
+                remote_key,
+                ExtraArgs={
+                    'ContentType': content_type,
+                    'CacheControl': 'max-age=300' # Opzionale: cache di 5 minuti
+                }
+            )
+            print("OK", flush=True)
+            
+        print("✅ Upload completato con successo!", flush=True)
+        print(f"🔗 Link pubblico base: https://pub-60003cd481774639ad48eee1aeccb881.r2.dev/{REMOTE_FOLDER}/")
+
+    except Exception as e:
+        print(f"\n❌ Errore durante l'upload R2: {e}", flush=True)
+
+# Esegui la funzione
+if __name__ == "__main__":
+    upload_to_r2()
