@@ -212,6 +212,7 @@ for idx, step_td in enumerate(ref_steps):
     # --- DATI ---
     try:
         t850 = clip_lon_lat(ds[850].t.sel(step=step_td, method="nearest") - 273.15)
+        gh850 = clip_lon_lat(ds[850].gh.sel(step=step_td, method="nearest") / 10)
         gh500 = clip_lon_lat(ds[500].gh.sel(step=step_td, method="nearest") / 10)
         t500 = clip_lon_lat(ds[500].t.sel(step=step_td, method="nearest") - 273.15)
         u500 = clip_lon_lat(ds[500].u.sel(step=step_td, method="nearest"))
