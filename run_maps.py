@@ -280,6 +280,21 @@ for idx, step_td in enumerate(ref_steps):
     upload_single_file(fname) # <--- UPLOAD IMMEDIATO
     generated_files.append({"name": fname, "step": step_h})
 
+    # 2. T850gh850
+    fname = f"T850_GH850_{step_h:03d}.webp"
+    fig, ax = setup_map()
+    cf = ax.contourf(t850.longitude, t850.latitude, t850, levels=boundaries_t, cmap=cmap_t, norm=norm_t, extend='both')
+    ax.contour(t850.longitude, t850.latitude, t850, levels=np.arange(-48, 49, 4), colors='dimgray', linewidths=0.01)
+    ax.contour(t850.longitude, t850.latitude, t850, levels=np.arange(-48, 49, 8), colors='dimgray', linewidths=0.4)
+    cs_gh = ax.contour(gh850.longitude, gh850.latitude, gh850, levels=np.arange(460,1000,4), colors='black', linewidths=[1.2 if (abs(l-544)%16==0) else 0.6 for l in np.arange(460,1000,4)])
+    ax.clabel(cs_gh, fmt='%d', fontsize=5)
+    add_title(ax, r"Temperatura\ 850hPa\ -\ Altezza\ di\ Geopotenziale\ 850\ hPa", valid_dt, lead_str)
+    cbar = plt.colorbar(cf, orientation='horizontal', pad=0.01, shrink=0.7, label="Temperatura (°C)", ticks=np.arange(-44,45,4)); cbar.ax.tick_params(labelsize=8)
+    plt.savefig(os.path.join(OUTDIR, fname), dpi=120, bbox_inches='tight', pil_kwargs={'quality': 65})
+    plt.close()
+    upload_single_file(fname) # <--- UPLOAD IMMEDIATO
+    generated_files.append({"name": fname, "step": step_h})
+
     # 3. WIND500
     fname = f"WIND500_{step_h:03d}.webp"
     fig, ax = setup_map()
