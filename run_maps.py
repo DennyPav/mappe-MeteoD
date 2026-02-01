@@ -78,10 +78,10 @@ def upload_single_file(filename):
 
 # ==================== RUN ECMWF ====================
 now = datetime.utcnow()
-if now.hour < 8:
+if now.hour < 6:
     run_hour = 12
     run_date = now.date() - timedelta(days=1)
-elif now.hour < 20:
+elif now.hour < 18:
     run_hour = 0
     run_date = now.date()
 else:
