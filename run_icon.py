@@ -114,9 +114,9 @@ norm_zt = BoundaryNorm(boundaries_zt, cmap_zt.N, clip=False)
 # ==================== GESTIONE TEMPO RUN ====================
 def get_run_datetime_now_utc():
     now = datetime.now(timezone.utc)
-    if now.hour < 3:
+    if now.hour < 2:
         return (now - timedelta(days=1)).strftime("%Y%m%d"), "12"
-    elif now.hour < 15:
+    elif now.hour < 14:
         return now.strftime("%Y%m%d"), "00"
     return now.strftime("%Y%m%d"), "12"
 
