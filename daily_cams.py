@@ -26,7 +26,7 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 os.makedirs(OUTDIR, exist_ok=True)
 
 # Area Europa (dataset CAMS: N, S, W, E)
-NORD, SUD, OVEST, EST = 54, 31, -10, 31
+NORD, SUD, OVEST, EST = 70, 30, -25, 40
 
 # --- ADS (nuovo endpoint) ---
 ADS_URL = "https://ads.atmosphere.copernicus.eu/api"
@@ -116,8 +116,8 @@ def clip_lon_lat(data):
 def setup_map():
     fig = plt.figure(figsize=(12, 10))
     ax = plt.axes(projection=ccrs.PlateCarree())
-    ax.coastlines(linewidths=0.6, resolution="10m")
-    ax.add_feature(cfeature.BORDERS, edgecolor="black", linewidth=0.5)
+    ax.coastlines(linewidths=1.0, resolution="10m")
+    ax.add_feature(cfeature.BORDERS, edgecolor="black", linewidth=1.0)
     ax.add_feature(cfeature.LAND, facecolor="#f0f0f0")
     ax.add_feature(cfeature.OCEAN, facecolor="#e0f7fa")
     return fig, ax
@@ -125,26 +125,27 @@ def setup_map():
 def add_title(ax, var_key, valid_dt, run_dt, lead_hours):
     full_name = VAR_CONFIG[var_key]["title"]
     
-    # Formattazione stringhe
+    # Data Run (dd/mm/YYYY)
     run_date_str = run_dt.strftime("%d/%m/%Y")
-    run_hour = run_dt.hour
     
-    timestep_date = valid_dt.strftime("%d/%m/%Y")
-    valid_hour_str = f"{valid_dt.strftime('%H')} LT (+{lead_hours}h)"
+    # Validità formattata: "dd/mm/YYYY HH (+XXh)"
+    valid_raw = f"{valid_dt.strftime('%d/%m/%Y %H')} (+{lead_hours}h)"
+    # Escape degli spazi per LaTeX
+    valid_latex = valid_raw.replace(" ", "\\ ")
     
-    # Titolo principale (Nome Variabile)
+    # Titolo Principale (Grassetto)
     main_title = r"$\bf{" + full_name.replace(" ", "\\ ") + "}$"
     
-    # Sottotitolo (Run e Validità)
+    # Sottotitolo
+    # CAMS (Bold) + run (Normal) + Validità (Bold)
     sub_title = (
-        f"CAMS run: {run_date_str} {run_hour:02d}z | "
-        f"Validità: {timestep_date} "
-        r"$\bf{" + valid_hour_str + "}$"
+        r"$\bf{CAMS}$"
+        f" run: {run_date_str} 00z | Validità: "
+        r"$\bf{" + valid_latex + "}$"
     )
     
     final_title = f"{main_title}\n{sub_title}"
     
-    # Centrato in alto
     ax.set_title(final_title, loc="center", fontsize=12)
     
     ax.text(
@@ -251,7 +252,7 @@ def run_job():
         print("🎨 Inizio generazione mappe...")
         ds = xr.open_dataset(file_nc)
 
-        # time/run handling: CAMS Europe ha forecast orario 0–96h dal run 00 UTC
+        # time/run handling
         if "time" in ds.coords and ds.time.size > 1:
             run_dt = pd_to_dt(ds.time.values[0])
             steps = ds.time.values
@@ -308,7 +309,7 @@ def run_job():
                 if "ensemble" in da.dims:
                     da = da.mean("ensemble")
 
-                data = clip_lon_lat(da)  # -> µg/m3
+                data = clip_lon_lat(da)  # µg/m3
 
                 # ora data deve essere 2D (lat, lon)
                 if data.ndim != 2:
