@@ -1,4 +1,4 @@
-name: ECMWF Maps Upload (R2)
+name: ECMWF
 
 on:
   schedule:
