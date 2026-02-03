@@ -13,11 +13,13 @@ import sys
 import shutil
 import zipfile
 import pandas as pd
+import geopandas as gpd  # <--- NUOVO IMPORT
 
 # ================= CONFIGURAZIONE =================
 
 DOWNLOAD_DIR = "cams_data"
 OUTDIR = "mappe_output"
+SHP_PATH = "Reg01012025_g_WGS84.shp"  # <--- FILE SHAPEFILE
 
 if os.path.exists(DOWNLOAD_DIR):
     shutil.rmtree(DOWNLOAD_DIR)
@@ -94,14 +96,36 @@ def clip_lon_lat(data):
     lon_min, lon_max = min(OVEST, EST), max(OVEST, EST)
     return data.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
 
-def setup_map():
+def setup_map(regions_geom=None):
+    """
+    Configura la mappa.
+    regions_geom: Geometrie (Series o List) delle regioni da disegnare.
+    """
     fig = plt.figure(figsize=(12, 10))
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.set_extent([OVEST, EST, SUD, NORD], crs=ccrs.PlateCarree())
-    ax.coastlines(linewidths=1.0, resolution="10m")
-    ax.add_feature(cfeature.BORDERS, edgecolor="black", linewidth=1.0)
+    
+    # 1. Aggiungi Ocean/Land per sfondo pulito
     ax.add_feature(cfeature.LAND, facecolor="#f0f0f0")
     ax.add_feature(cfeature.OCEAN, facecolor="#e0f7fa")
+
+    # 2. Aggiungi Regioni (Sottili)
+    # Vengono disegnate PRIMA dei confini nazionali in modo che se si sovrappongono, 
+    # quelli nazionali (più spessi) prevalgano visivamente, oppure sopra Land ma sotto Borders.
+    if regions_geom is not None:
+        ax.add_geometries(
+            regions_geom, 
+            crs=ccrs.PlateCarree(), 
+            facecolor='none', 
+            edgecolor='black', 
+            linewidth=0.5,       # <--- PIÙ SOTTILI (0.4 vs 1.0)
+            alpha=0.6            # Leggera trasparenza per non appesantire
+        )
+
+    # 3. Aggiungi Coste e Confini Nazionali (Più spessi)
+    ax.coastlines(linewidths=1.0, resolution="10m", color="black")
+    ax.add_feature(cfeature.BORDERS, edgecolor="black", linewidth=1.0)
+
     return fig, ax
 
 def add_title(ax, var_key, valid_dt_loc, run_dt_utc, lead_hours):
@@ -160,6 +184,21 @@ def identify_variable(var_name):
 def run_job():
     print(f"--- Start CAMS Processing: {datetime.datetime.now()} ---")
 
+    # --- CARICAMENTO SHAPEFILE REGIONI (Tuo codice) ---
+    print("🗺️ Caricamento shapefile...", flush=True)
+    regions_geom = None
+    if os.path.exists(SHP_PATH):
+        try:
+            reg_df = gpd.read_file(SHP_PATH).explode(index_parts=False).to_crs(epsg=4326)
+            # Semplificazione per rendere il plotting più veloce e leggero
+            regions_geom = reg_df.geometry.simplify(tolerance=0.01, preserve_topology=True)
+            print("✅ Shapefile OK!", flush=True)
+        except Exception as e:
+            print(f"⚠️ Errore shapefile: {e}", flush=True)
+    else:
+        print(f"⚠️ Shapefile non trovato: {SHP_PATH}", flush=True)
+    # --------------------------------------------------
+
     if not CDS_KEY:
         print("❌ CDS_API_KEY non trovata.")
         sys.exit(1)
@@ -171,7 +210,6 @@ def run_job():
         now_utc = datetime.datetime.now(datetime.timezone.utc)
         today_date = now_utc.date()
         
-        # run_dt_utc è la base fissa per tutti i calcoli
         run_dt_utc = datetime.datetime(
             today_date.year, today_date.month, today_date.day, 
             0, 0, 0, tzinfo=datetime.timezone.utc
@@ -183,7 +221,6 @@ def run_job():
         file_zip = os.path.join(DOWNLOAD_DIR, "cams.zip")
         file_nc = os.path.join(DOWNLOAD_DIR, "data.nc")
         
-        # Download forecast 0..96 hours
         leadtimes = [str(i) for i in range(0, 97)]
 
         request = {
@@ -208,7 +245,6 @@ def run_job():
 
         ds = xr.open_dataset(file_nc)
 
-        # Identificazione asse temporale
         if "leadtime" in ds.coords:
             time_dim = "leadtime"
             steps_values = ds.leadtime.values
@@ -225,7 +261,6 @@ def run_job():
         # Loop Temporale
         for i, val in enumerate(steps_values):
             
-            # Calcolo ore (robustezza contro formati diversi di 'val')
             if np.issubdtype(val.dtype, np.timedelta64):
                 hours_added = int(val / np.timedelta64(1, 'h'))
             elif np.issubdtype(val.dtype, np.datetime64):
@@ -233,11 +268,6 @@ def run_job():
             else:
                 hours_added = i
 
-            # CALCOLO DATE RIGOROSO:
-            # 1. Partiamo da Run UTC (Oggi 00:00)
-            # 2. Aggiungiamo ore previsione -> Validità UTC
-            # 3. Convertiamo Validità UTC -> Validità Roma
-            
             valid_dt_utc = run_dt_utc + datetime.timedelta(hours=hours_added)
             valid_dt_loc = valid_dt_utc.astimezone(TZ_ROME)
             
@@ -259,14 +289,15 @@ def run_job():
                 if data.ndim != 2: continue
 
                 cmap, norm, levels, unit = get_aqi_colormap(short_name)
-                fig, ax = setup_map()
+                
+                # Setup mappa PASSANDO LE REGIONI
+                fig, ax = setup_map(regions_geom)
                 
                 if levels:
                     cf = ax.contourf(data.lon, data.lat, data.values, levels=levels, cmap=cmap, norm=norm, extend="max")
                 else:
                     cf = ax.contourf(data.lon, data.lat, data.values, cmap=cmap, extend="max")
 
-                # Passiamo entrambe le date al titolo
                 add_title(ax, short_name, valid_dt_loc, run_dt_utc, hours_added)
                 
                 cbar = plt.colorbar(cf, orientation="horizontal", pad=0.02, shrink=0.7, label=unit)
