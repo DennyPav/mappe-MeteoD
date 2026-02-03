@@ -1,4 +1,4 @@
-name: ERA5 monthly PNG upload
+name: ERA5-Land
 
 on:
   schedule:
