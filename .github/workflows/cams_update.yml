@@ -1,0 +1,35 @@
+name: Daily CAMS Forecast Maps
+
+on:
+  schedule:
+    - cron: '45 8 * * *' # 8:45 UTC
+  workflow_dispatch:
+
+jobs:
+  generate-maps:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install Dependencies
+      # Pillow è necessario per salvare in WebP
+      run: |
+        pip install --upgrade pip
+        pip install cdsapi xarray netCDF4 matplotlib cartopy boto3 pytz scipy Pillow
+
+    - name: Run Processing Script
+      env:
+        # Mapping esatto dei tuoi Secrets -> Env Vars usate in Python
+        CDS_API_URL: ${{ secrets.CDS_API_URL }}
+        CDS_API_KEY: ${{ secrets.CDS_API_KEY }}
+        R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        R2_ACCESS_KEY: ${{ secrets.R2_ACCESS_KEY }}
+        R2_SECRET_KEY: ${{ secrets.R2_SECRET_KEY }}
+      run: python daily_cams.py
