@@ -438,13 +438,19 @@ finalize_plot(fig, ax, cf, run_datetime_obj, last_time_dt, "Neve fresca cumulata
 save_plot(os.path.join(OUTDIR, fname))
 generated_files.append({"name": fname, "step": total_step})
 
-# GIORNALIERI
+# GIORNALIERI - PRECIPITAZIONE
 daily_prec = tp.resample(time="1D").sum()
 for idx, t_day in enumerate(daily_prec.time.values):
     day_idx_str = f"{idx:02d}"
     ts = pd.to_datetime(t_day).replace(tzinfo=timezone.utc)
     prec_day_data = daily_prec.sel(time=t_day)
-    if prec_day_data.max() < 0.1: continue
+    if prec_day_data.max() < 0.1: 
+        continue
+    
+    # Salta se è l'ultimo giorno e ha meno di 3 timestep nel dataset originale
+    original_day_data = tp.sel(time=slice(t_day, t_day + np.timedelta64(1,'D') - np.timedelta64(1,'ns')))
+    if original_day_data.sizes['time'] < 3:
+        continue
     
     # Calcolo "step" convenzionale: +24h, +48h dalla data run
     day_step = 24 * (idx + 1)
@@ -457,50 +463,55 @@ for idx, t_day in enumerate(daily_prec.time.values):
     save_plot(os.path.join(OUTDIR, fname))
     generated_files.append({"name": fname, "step": day_step})
 
+# GIORNALIERI - TEMPERATURA E RAFFICHE
 days = np.unique(t2m.time.dt.floor("D"))
 for idx, day in enumerate(days):
     day_idx_str = f"{idx:02d}"
     ts_day = pd.to_datetime(day).replace(tzinfo=timezone.utc)
     t_day = t2m.sel(time=slice(day, day + np.timedelta64(1,'D') - np.timedelta64(1,'ns')))
     
+    # Salta se ci sono meno di 3 timestep per questo giorno
+    if t_day.sizes['time'] < 3:
+        continue
+    
     # Step giornaliero
     day_step = 24 * (idx + 1)
     
-    if t_day.sizes['time'] > 0:
-        levs_lines = np.arange(-48, 52, 4)
+    levs_lines = np.arange(-48, 52, 4)
 
-        fname = f"TMIN_DAY_{day_idx_str}.webp"
-        t_min_val = t_day.min("time")
+    fname = f"TMIN_DAY_{day_idx_str}.webp"
+    t_min_val = t_day.min("time")
+    fig, ax = setup_map()
+    cf = ax.contourf(t_min_val.longitude, t_min_val.latitude, t_min_val, levels=boundaries_t, cmap=cmap_t, norm=norm_t, extend="both")
+    cs = ax.contour(t_min_val.longitude, t_min_val.latitude, t_min_val, levels=levs_lines, colors="#555555", linewidths=0.3)
+    ax.clabel(cs, inline=True, fontsize=7, fmt='%d') 
+    finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Temperatura Minima", "Giornaliera", "Temperatura (°C)", explicit_ticks=ticks_t_lines)
+    save_plot(os.path.join(OUTDIR, fname))
+    generated_files.append({"name": fname, "step": day_step})
+    
+    fname = f"TMAX_DAY_{day_idx_str}.webp"
+    t_max_val = t_day.max("time")
+    fig, ax = setup_map()
+    cf = ax.contourf(t_max_val.longitude, t_max_val.latitude, t_max_val, levels=boundaries_t, cmap=cmap_t, norm=norm_t, extend="both")
+    cs = ax.contour(t_max_val.longitude, t_max_val.latitude, t_max_val, levels=levs_lines, colors="#555555", linewidths=0.3)
+    ax.clabel(cs, inline=True, fontsize=7, fmt='%d') 
+    finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Temperatura Massima", "Giornaliera", "Temperatura (°C)", explicit_ticks=ticks_t_lines)
+    save_plot(os.path.join(OUTDIR, fname))
+    generated_files.append({"name": fname, "step": day_step})
+
+    vmax_day = vmax_10m.sel(time=slice(day, day + np.timedelta64(1,'D') - np.timedelta64(1,'ns')))
+    if vmax_day.sizes['time'] > 0:
+        fname = f"GUST_MAX_DAY_{day_idx_str}.webp"
+        g_max_val = vmax_day.max("time")
         fig, ax = setup_map()
-        cf = ax.contourf(t_min_val.longitude, t_min_val.latitude, t_min_val, levels=boundaries_t, cmap=cmap_t, norm=norm_t, extend="both")
-        cs = ax.contour(t_min_val.longitude, t_min_val.latitude, t_min_val, levels=levs_lines, colors="#555555", linewidths=0.3)
-        ax.clabel(cs, inline=True, fontsize=7, fmt='%d') 
-        finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Temperatura Minima", "Giornaliera", "Temperatura (°C)", explicit_ticks=ticks_t_lines)
+        cf = ax.contourf(g_max_val.longitude, g_max_val.latitude, g_max_val, levels=boundaries_g, cmap=cmap_g, norm=norm_g, extend="max")
+        ax.contour(g_max_val.longitude, g_max_val.latitude, g_max_val, levels=[50, 100], colors="black", linewidths=0.3, alpha=0.5)
+        finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Raffica di vento massima", "Giornaliera", "Intensità della raffica (km/h)", explicit_ticks=boundaries_g)
         save_plot(os.path.join(OUTDIR, fname))
         generated_files.append({"name": fname, "step": day_step})
-        
-        fname = f"TMAX_DAY_{day_idx_str}.webp"
-        t_max_val = t_day.max("time")
-        fig, ax = setup_map()
-        cf = ax.contourf(t_max_val.longitude, t_max_val.latitude, t_max_val, levels=boundaries_t, cmap=cmap_t, norm=norm_t, extend="both")
-        cs = ax.contour(t_max_val.longitude, t_max_val.latitude, t_max_val, levels=levs_lines, colors="#555555", linewidths=0.3)
-        ax.clabel(cs, inline=True, fontsize=7, fmt='%d') 
-        finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Temperatura Massima", "Giornaliera", "Temperatura (°C)", explicit_ticks=ticks_t_lines)
-        save_plot(os.path.join(OUTDIR, fname))
-        generated_files.append({"name": fname, "step": day_step})
-
-        vmax_day = vmax_10m.sel(time=slice(day, day + np.timedelta64(1,'D') - np.timedelta64(1,'ns')))
-        if vmax_day.sizes['time'] > 0:
-            fname = f"GUST_MAX_DAY_{day_idx_str}.webp"
-            g_max_val = vmax_day.max("time")
-            fig, ax = setup_map()
-            cf = ax.contourf(g_max_val.longitude, g_max_val.latitude, g_max_val, levels=boundaries_g, cmap=cmap_g, norm=norm_g, extend="max")
-            ax.contour(g_max_val.longitude, g_max_val.latitude, g_max_val, levels=[50, 100], colors="black", linewidths=0.3, alpha=0.5)
-            finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Raffica di vento massima", "Giornaliera", "Intensità della raffica (km/h)", explicit_ticks=boundaries_g)
-            save_plot(os.path.join(OUTDIR, fname))
-            generated_files.append({"name": fname, "step": day_step})
 
 print("\n✅ Finito! Generazione JSON in corso...", flush=True)
+
 
 # ==================== SALVATAGGIO JSON ====================
 json_data = {
