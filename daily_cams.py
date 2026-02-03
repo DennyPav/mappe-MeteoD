@@ -25,7 +25,7 @@ if os.path.exists(OUTDIR):
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 os.makedirs(OUTDIR, exist_ok=True)
 
-# Area Europa (dataset CAMS: N, S, W, E)[web:16][web:11]
+# Area Europa (dataset CAMS: N, S, W, E)
 NORD, SUD, OVEST, EST = 54, 31, -10, 31
 
 # --- ADS (nuovo endpoint) ---
@@ -47,16 +47,18 @@ R2_FOLDER = "CAMS"
 TZ_ROME = pytz.timezone("Europe/Rome")
 
 VAR_CONFIG = {
-    "pm2p5": {"tag": "PM25", "title": "Particolato Fine (PM2.5)"},
-    "pm10": {"tag": "PM10", "title": "Particolato (PM10)"},
-    "no2": {"tag": "NO", "title": "Biossido di Azoto (NO₂)"},
-    "o3": {"tag": "O", "title": "Ozono (O₃)"},
+    "pm2p5": {"tag": "PM25", "title": "Particolato Fine PM2.5"},
+    "pm10": {"tag": "PM10", "title": "Particolato PM10"},
+    "no2": {"tag": "NO", "title": "Biossido di Azoto NO₂"},
+    "o3": {"tag": "O", "title": "Ozono O₃"},
 }
 
 # ================= FUNZIONI DI SUPPORTO =================
 
 def get_aqi_colormap(pollutant):
     """Restituisce colormap, norm, livelli e unità (µg/m³)."""
+    unit_label = "Concentrazione (µg/m³)"
+    
     if pollutant == "no2":
         levels = [0, 20, 40, 90, 120, 230, 340, 1000]
         colors = [
@@ -70,7 +72,7 @@ def get_aqi_colormap(pollutant):
         ]
         cmap = ListedColormap(colors)
         norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
-        return cmap, norm, levels, "µg/m³"
+        return cmap, norm, levels, unit_label
 
     if pollutant == "o3":
         levels = [0, 50, 80, 100, 120, 140, 160, 180, 200, 240, 300]
@@ -88,7 +90,7 @@ def get_aqi_colormap(pollutant):
         ]
         cmap = ListedColormap(colors)
         norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
-        return cmap, norm, levels, "µg/m³"
+        return cmap, norm, levels, unit_label
 
     if pollutant in ["pm2p5", "pm10"]:
         if pollutant == "pm2p5":
@@ -98,9 +100,9 @@ def get_aqi_colormap(pollutant):
         n_intervals = len(levels) - 1
         cmap_base = plt.get_cmap("Spectral_r", n_intervals)
         norm = BoundaryNorm(levels, ncolors=cmap_base.N, clip=True)
-        return cmap_base, norm, levels, "µg/m³"
+        return cmap_base, norm, levels, unit_label
 
-    return plt.cm.viridis, None, None, "µg/m³"
+    return plt.cm.viridis, None, None, unit_label
 
 def clip_lon_lat(data):
     """Standardizza nomi lat/lon, ordina e ritaglia area."""
@@ -122,14 +124,29 @@ def setup_map():
 
 def add_title(ax, var_key, valid_dt, run_dt, lead_hours):
     full_name = VAR_CONFIG[var_key]["title"]
-    valid_str = valid_dt.strftime("%d/%m/%Y")
-    valid_hour = valid_dt.strftime("%H:%M")
-    title = (
-        f"{full_name}\n"
-        f"Run: {run_dt.strftime('%d/%m/%Y %H')}z | "
-        f"Validità: {valid_str} {valid_hour} LT (+{lead_hours}h)"
+    
+    # Formattazione stringhe
+    run_date_str = run_dt.strftime("%d/%m/%Y")
+    run_hour = run_dt.hour
+    
+    timestep_date = valid_dt.strftime("%d/%m/%Y")
+    valid_hour_str = f"{valid_dt.strftime('%H')} LT (+{lead_hours}h)"
+    
+    # Titolo principale (Nome Variabile)
+    main_title = r"$\bf{" + full_name.replace(" ", "\\ ") + "}$"
+    
+    # Sottotitolo (Run e Validità)
+    sub_title = (
+        f"CAMS run: {run_date_str} {run_hour:02d}z | "
+        f"Validità: {timestep_date} "
+        r"$\bf{" + valid_hour_str + "}$"
     )
-    ax.set_title(title, loc="left", fontsize=11, fontweight="bold")
+    
+    final_title = f"{main_title}\n{sub_title}"
+    
+    # Centrato in alto
+    ax.set_title(final_title, loc="center", fontsize=12)
+    
     ax.text(
         0.99,
         0.01,
@@ -234,7 +251,7 @@ def run_job():
         print("🎨 Inizio generazione mappe...")
         ds = xr.open_dataset(file_nc)
 
-        # time/run handling: CAMS Europe ha forecast orario 0–96h dal run 00 UTC[web:11]
+        # time/run handling: CAMS Europe ha forecast orario 0–96h dal run 00 UTC
         if "time" in ds.coords and ds.time.size > 1:
             run_dt = pd_to_dt(ds.time.values[0])
             steps = ds.time.values
@@ -291,7 +308,7 @@ def run_job():
                 if "ensemble" in da.dims:
                     da = da.mean("ensemble")
 
-                data = clip_lon_lat(da) * 1e9  # kg/m3 -> µg/m3
+                data = clip_lon_lat(da)  # -> µg/m3
 
                 # ora data deve essere 2D (lat, lon)
                 if data.ndim != 2:
