@@ -12,6 +12,7 @@ import boto3
 import sys
 import shutil
 import zipfile
+import pandas as pd
 
 # ================= CONFIGURAZIONE =================
 
@@ -25,12 +26,10 @@ if os.path.exists(OUTDIR):
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 os.makedirs(OUTDIR, exist_ok=True)
 
-# MODIFICA 3: Area Europa Full Domain (CAMS standard: 25W - 45E, 30N - 72N)
-# Nota: Ho interpretato "east boundary=25W" e "west=45E" invertendo i valori 
-# per conformità geografica (Ovest è negativo, Est è positivo).
+# Area Europa Full Domain
 NORD, SUD, OVEST, EST = 72, 30, -25, 45
 
-# --- ADS (nuovo endpoint) ---
+# --- ADS ---
 ADS_URL = "https://ads.atmosphere.copernicus.eu/api"
 
 raw_key = os.environ.get("CDS_API_KEY", "")
@@ -47,49 +46,30 @@ BUCKET_NAME = "mappe"
 R2_FOLDER = "CAMS"
 
 TZ_ROME = pytz.timezone("Europe/Rome")
+TZ_UTC = datetime.timezone.utc
 
 VAR_CONFIG = {
     "pm2p5": {"tag": "PM25", "title": "Particolato Fine PM2.5"},
     "pm10": {"tag": "PM10", "title": "Particolato PM10"},
-    "no2": {"tag": "NO", "title": "Biossido di Azoto NO₂"},
-    "o3": {"tag": "O", "title": "Ozono O₃"},
+    "no2": {"tag": "NO", "title": r"Biossido di Azoto NO$_2$"},
+    "o3": {"tag": "O", "title": r"Ozono O$_3$"},
 }
 
 # ================= FUNZIONI DI SUPPORTO =================
 
 def get_aqi_colormap(pollutant):
-    """Restituisce colormap, norm, livelli e unità (µg/m³)."""
     unit_label = "Concentrazione (µg/m³)"
     
     if pollutant == "no2":
         levels = [0, 20, 40, 90, 120, 230, 340, 1000]
-        colors = [
-            "#009966",  # 0-20
-            "#ffde33",  # 20-40
-            "#ff9933",  # 40-90
-            "#cc0033",  # 90-120
-            "#660099",  # 120-230
-            "#7e0023",  # 230-340
-            "#000000",  # 340-1000
-        ]
+        colors = ["#009966", "#ffde33", "#ff9933", "#cc0033", "#660099", "#7e0023", "#000000"]
         cmap = ListedColormap(colors)
         norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
         return cmap, norm, levels, unit_label
 
     if pollutant == "o3":
         levels = [0, 50, 80, 100, 120, 140, 160, 180, 200, 240, 300]
-        colors = [
-            "#009966",  # 0-50
-            "#33cc33",  # 50-80
-            "#ccff33",  # 80-100
-            "#ffff00",  # 100-120
-            "#ffcc00",  # 120-140
-            "#ff6600",  # 140-160
-            "#ff0000",  # 160-180
-            "#cc0000",  # 180-200
-            "#990099",  # 200-240
-            "#660066",  # 240-300
-        ]
+        colors = ["#009966", "#33cc33", "#ccff33", "#ffff00", "#ffcc00", "#ff6600", "#ff0000", "#cc0000", "#990099", "#660066"]
         cmap = ListedColormap(colors)
         norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
         return cmap, norm, levels, unit_label
@@ -107,7 +87,6 @@ def get_aqi_colormap(pollutant):
     return plt.cm.viridis, None, None, unit_label
 
 def clip_lon_lat(data):
-    """Standardizza nomi lat/lon, ordina e ritaglia area."""
     if "latitude" in data.coords:
         data = data.rename({"latitude": "lat", "longitude": "lon"})
     data = data.sortby(["lat", "lon"])
@@ -117,53 +96,39 @@ def clip_lon_lat(data):
 
 def setup_map():
     fig = plt.figure(figsize=(12, 10))
-    # MODIFICA: Per il full domain spesso conviene una proiezione diversa, 
-    # ma PlateCarree va bene per semplicità.
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.set_extent([OVEST, EST, SUD, NORD], crs=ccrs.PlateCarree())
-    
     ax.coastlines(linewidths=1.0, resolution="10m")
     ax.add_feature(cfeature.BORDERS, edgecolor="black", linewidth=1.0)
     ax.add_feature(cfeature.LAND, facecolor="#f0f0f0")
     ax.add_feature(cfeature.OCEAN, facecolor="#e0f7fa")
     return fig, ax
 
-def add_title(ax, var_key, valid_dt, run_dt, lead_hours):
+def add_title(ax, var_key, valid_dt_loc, run_dt_utc, lead_hours):
     full_name = VAR_CONFIG[var_key]["title"]
     
-    # MODIFICA 1: Data Run forzata alla data di start/download
-    run_date_str = run_dt.strftime("%d/%m/%Y")
+    # Run Date (UTC)
+    run_date_str = run_dt_utc.strftime("%d/%m/%Y")
     
-    # Validità formattata: "dd/mm/YYYY HH (+XXh)"
-    valid_raw = f"{valid_dt.strftime('%d/%m/%Y %H')} (+{lead_hours}h)"
-    valid_latex = valid_raw.replace(" ", "\\\\ ")
+    # Validity Date (Local Rome Time)
+    valid_str = valid_dt_loc.strftime('%d/%m/%Y %H:%M')
     
-    main_title = r"$\\bf{" + full_name.replace(" ", "\\\\ ") + "}$"
+    # Titolo Variabile
+    ax.text(0.5, 1.06, full_name, transform=ax.transAxes, 
+            ha='center', va='bottom', fontsize=14, fontweight='bold')
     
-    sub_title = (
-        r"$\\bf{CAMS}$"
-        f" run: {run_date_str} 00z | Validità: "
-        r"$\\bf{" + valid_latex + "}$"
-    )
-    
-    final_title = f"{main_title}\\n{sub_title}"
-    
-    ax.set_title(final_title, loc="center", fontsize=12)
+    # Sottotitolo Dati
+    subtitle = f"CAMS Run: {run_date_str} 00z  |  Validità: {valid_str} (+{lead_hours}h)"
+    ax.text(0.5, 1.02, subtitle, transform=ax.transAxes, 
+            ha='center', va='bottom', fontsize=11)
     
     ax.text(
-        0.99,
-        0.01,
-        "Data: CAMS/Copernicus - Processing: Python",
-        transform=ax.transAxes,
-        fontsize=8,
-        color="gray",
-        ha="right",
-        va="bottom",
+        0.99, 0.01, "Data: CAMS/Copernicus - Processing: Python",
+        transform=ax.transAxes, fontsize=8, color="gray", ha="right", va="bottom"
     )
 
 def upload_to_r2(file_path, object_name):
     if not R2_ACCESS_KEY or not R2_SECRET_KEY:
-        print("⚠️ Credenziali R2 mancanti. Salto upload.")
         return
     s3_client = boto3.client(
         "s3",
@@ -184,18 +149,11 @@ def upload_to_r2(file_path, object_name):
 
 def identify_variable(var_name):
     v = var_name.lower()
-    if "pm2p5" in v or "2.5um" in v:
-        return "pm2p5"
-    if "pm10" in v or "10um" in v:
-        return "pm10"
-    if "no2" in v or "nitrogen_dioxide" in v:
-        return "no2"
-    if "o3" in v or "ozone" in v or "go3" in v:
-        return "o3"
+    if "pm2p5" in v or "2.5um" in v: return "pm2p5"
+    if "pm10" in v or "10um" in v: return "pm10"
+    if "no2" in v or "nitrogen_dioxide" in v: return "no2"
+    if "o3" in v or "ozone" in v or "go3" in v: return "o3"
     return None
-
-def pd_to_dt(ts):
-    return datetime.datetime.utcfromtimestamp(ts.astype("O") / 1e9)
 
 # ================= MAIN LOOP =================
 
@@ -203,27 +161,33 @@ def run_job():
     print(f"--- Start CAMS Processing: {datetime.datetime.now()} ---")
 
     if not CDS_KEY:
-        print("❌ Errore: CDS_API_KEY non trovata o vuota.")
+        print("❌ CDS_API_KEY non trovata.")
         sys.exit(1)
 
-    # -------- DOWNLOAD --------
     try:
         client = cdsapi.Client(url=ADS_URL, key=CDS_KEY)
-        today = datetime.datetime.now(datetime.timezone.utc).date()
-        date_query = f"{today}/{today}"
+        
+        # 1. Definizione Data Run: OGGI 00:00 UTC
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+        today_date = now_utc.date()
+        
+        # run_dt_utc è la base fissa per tutti i calcoli
+        run_dt_utc = datetime.datetime(
+            today_date.year, today_date.month, today_date.day, 
+            0, 0, 0, tzinfo=datetime.timezone.utc
+        )
+        
+        date_query = f"{today_date}/{today_date}"
+        print(f"📅 Run Reference Date (UTC): {run_dt_utc}")
 
         file_zip = os.path.join(DOWNLOAD_DIR, "cams.zip")
         file_nc = os.path.join(DOWNLOAD_DIR, "data.nc")
-
+        
+        # Download forecast 0..96 hours
         leadtimes = [str(i) for i in range(0, 97)]
 
         request = {
-            "variable": [
-                "nitrogen_dioxide",
-                "ozone",
-                "particulate_matter_2.5um",
-                "particulate_matter_10um",
-            ],
+            "variable": ["nitrogen_dioxide", "ozone", "particulate_matter_2.5um", "particulate_matter_10um"],
             "model": ["ensemble"],
             "level": ["0"],
             "date": [date_query],
@@ -234,140 +198,93 @@ def run_job():
             "area": [NORD, OVEST, SUD, EST],
         }
 
-        print(f"⬇️ Richiesta API verso {ADS_URL}...")
+        print(f"⬇️ Download {ADS_URL}...")
         client.retrieve("cams-europe-air-quality-forecasts", request).download(file_zip)
 
-        print("📦 Estrazione ZIP...")
         with zipfile.ZipFile(file_zip, "r") as zip_ref:
             zip_ref.extractall(DOWNLOAD_DIR)
             extracted = [f for f in os.listdir(DOWNLOAD_DIR) if f.endswith(".nc")]
-            if not extracted:
-                raise FileNotFoundError("Nessun file .nc trovato nello zip")
             os.rename(os.path.join(DOWNLOAD_DIR, extracted[0]), file_nc)
 
-    except Exception as e:
-        print(f"❌ Errore Critico Download: {e}")
-        sys.exit(1)
-
-    # -------- ELABORAZIONE --------
-    try:
-        print("🎨 Inizio generazione mappe...")
         ds = xr.open_dataset(file_nc)
 
-        # MODIFICA 1: Forziamo la run_dt a 'today' (data di download/start)
-        # Convertiamo 'today' (date) in datetime per i calcoli
-        run_dt = datetime.datetime(today.year, today.month, today.day, 0, 0, 0)
-        
-        # Gestione steps temporali
-        if "time" in ds.coords and ds.time.size > 1:
-            steps = ds.time.values
-            time_iter = True
+        # Identificazione asse temporale
+        if "leadtime" in ds.coords:
+            time_dim = "leadtime"
+            steps_values = ds.leadtime.values
+        elif "step" in ds.coords:
+            time_dim = "step"
+            steps_values = ds.step.values
+        elif "time" in ds.coords:
+            time_dim = "time"
+            steps_values = ds.time.values
         else:
-            steps = ds.step.values if "step" in ds.coords else ds.leadtime.values
-            time_iter = False
+            print("❌ Dimensione temporale mancante")
+            sys.exit(1)
 
-        for i, val in enumerate(steps):
-            if time_iter:
-                # Se iteriamo su 'time', calcoliamo la leadtime come differenza
-                valid_dt_utc = pd_to_dt(val)
-                diff_hours = (valid_dt_utc - run_dt).total_seconds() / 3600
-                lead_hours = int(round(diff_hours))
+        # Loop Temporale
+        for i, val in enumerate(steps_values):
+            
+            # Calcolo ore (robustezza contro formati diversi di 'val')
+            if np.issubdtype(val.dtype, np.timedelta64):
+                hours_added = int(val / np.timedelta64(1, 'h'))
+            elif np.issubdtype(val.dtype, np.datetime64):
+                hours_added = i 
             else:
-                # Se iteriamo su 'step'/'leadtime', aggiungiamo le ore alla run_dt
-                hours_added = int(val.astype("timedelta64[h]").astype(int))
-                valid_dt_utc = run_dt + datetime.timedelta(hours=hours_added)
-                lead_hours = hours_added
+                hours_added = i
 
-            valid_dt_loc = pytz.utc.localize(valid_dt_utc).astimezone(TZ_ROME)
-            timestep_str = f"{lead_hours:02d}"
-
-            print(f"   Processing +{lead_hours}h ...")
+            # CALCOLO DATE RIGOROSO:
+            # 1. Partiamo da Run UTC (Oggi 00:00)
+            # 2. Aggiungiamo ore previsione -> Validità UTC
+            # 3. Convertiamo Validità UTC -> Validità Roma
+            
+            valid_dt_utc = run_dt_utc + datetime.timedelta(hours=hours_added)
+            valid_dt_loc = valid_dt_utc.astimezone(TZ_ROME)
+            
+            timestep_str = f"{hours_added:02d}"
+            
+            print(f"   Processing +{hours_added}h -> Valid (IT): {valid_dt_loc}")
 
             for var_nc_name in ds.data_vars:
                 short_name = identify_variable(var_nc_name)
-                if not short_name:
-                    continue
+                if not short_name: continue
 
-                # selezione temporale
-                if time_iter:
-                    da = ds[var_nc_name].sel(time=val)
-                else:
-                    idx_dict = (
-                        {"step": i}
-                        if "step" in ds.coords
-                        else {"leadtime": i}
-                        if "leadtime" in ds.coords
-                        else {"time": i}
-                    )
-                    da = ds[var_nc_name].isel(**idx_dict)
+                da = ds[var_nc_name].isel({time_dim: i})
 
-                # riduci dimensioni: tieni solo lat/lon (2D)
-                if "level" in da.dims:
-                    da = da.sel(level=da.level.min())
-                if "model" in da.dims:
-                    da = da.mean("model")
-                if "ensemble" in da.dims:
-                    da = da.mean("ensemble")
+                if "level" in da.dims: da = da.sel(level=da.level.min())
+                if "model" in da.dims: da = da.mean("model")
+                if "ensemble" in da.dims: da = da.mean("ensemble")
 
                 data = clip_lon_lat(da)
-
-                if data.ndim != 2:
-                    print(f"⚠️ Skip {short_name} +{lead_hours}h: data.ndim={data.ndim}")
-                    continue
+                if data.ndim != 2: continue
 
                 cmap, norm, levels, unit = get_aqi_colormap(short_name)
-
                 fig, ax = setup_map()
                 
-                # Plot
                 if levels:
-                    cf = ax.contourf(
-                        data.lon,
-                        data.lat,
-                        data.values,
-                        levels=levels,
-                        cmap=cmap,
-                        norm=norm,
-                        extend="max",
-                    )
+                    cf = ax.contourf(data.lon, data.lat, data.values, levels=levels, cmap=cmap, norm=norm, extend="max")
                 else:
-                    cf = ax.contourf(
-                        data.lon,
-                        data.lat,
-                        data.values,
-                        cmap=cmap,
-                        extend="max",
-                    )
+                    cf = ax.contourf(data.lon, data.lat, data.values, cmap=cmap, extend="max")
 
-                # Titolo con Run Date fissa su 'today'
-                add_title(ax, short_name, valid_dt_loc, run_dt, lead_hours)
+                # Passiamo entrambe le date al titolo
+                add_title(ax, short_name, valid_dt_loc, run_dt_utc, hours_added)
                 
-                # MODIFICA 2: Colorbar più stretta (shrink=0.7)
-                cbar = plt.colorbar(
-                    cf, orientation="horizontal", pad=0.02, shrink=0.7, label=unit
-                )
+                cbar = plt.colorbar(cf, orientation="horizontal", pad=0.02, shrink=0.7, label=unit)
                 cbar.ax.tick_params(labelsize=8)
 
                 tag = VAR_CONFIG[short_name]["tag"]
                 filename = f"{tag}_{timestep_str}.webp"
                 filepath = os.path.join(OUTDIR, filename)
 
-                plt.savefig(
-                    filepath,
-                    dpi=100,
-                    bbox_inches="tight",
-                    format="webp",
-                    pil_kwargs={"quality": 70},
-                )
+                plt.savefig(filepath, dpi=100, bbox_inches="tight", format="webp", pil_kwargs={"quality": 70})
                 plt.close(fig)
-
                 upload_to_r2(filepath, f"{R2_FOLDER}/{filename}")
 
         ds.close()
-        print("✅ Job completato con successo.")
+        print("✅ Job completato.")
 
     except Exception as e:
-        print(f"❌ Errore elaborazione: {e}")
+        print(f"❌ Errore: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
