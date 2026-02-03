@@ -235,10 +235,10 @@ if os.path.exists(SHP_PATH):
 def setup_map():
     fig = plt.figure(figsize=(12, 10))
     ax = plt.axes(projection=ccrs.PlateCarree())
-    ax.coastlines(linewidth=0.4)
-    ax.add_feature(cfeature.BORDERS, linewidth=0.6, edgecolor='black')
+    ax.coastlines(linewidth=0.8)
+    ax.add_feature(cfeature.BORDERS, linewidth=0.8, edgecolor='black')
     if regions_geom is not None:
-        ax.add_geometries(regions_geom, ccrs.PlateCarree(), facecolor='none', edgecolor='darkgray', linewidth=0.4)
+        ax.add_geometries(regions_geom, ccrs.PlateCarree(), facecolor='none', edgecolor='darkgray', linewidth=0.6)
     ax.set_extent(MAP_EXTENT, crs=ccrs.PlateCarree())
     return fig, ax
 
