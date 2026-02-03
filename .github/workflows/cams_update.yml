@@ -1,4 +1,4 @@
-name: Daily CAMS Forecast Maps
+name: CAMS
 
 on:
   schedule:
