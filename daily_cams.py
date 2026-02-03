@@ -27,7 +27,7 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 os.makedirs(OUTDIR, exist_ok=True)
 
 # Area Europa Full Domain
-NORD, SUD, OVEST, EST = 56, 32, -10, 26
+NORD, SUD, OVEST, EST = 56, 32, 0, 24
 
 # --- ADS ---
 ADS_URL = "https://ads.atmosphere.copernicus.eu/api"
