@@ -23,6 +23,7 @@ jobs:
       run: |
         pip install --upgrade pip
         pip install cdsapi xarray netCDF4 matplotlib cartopy boto3 pytz scipy Pillow
+        pip install geopandas
 
     - name: Run Processing Script
       env:
