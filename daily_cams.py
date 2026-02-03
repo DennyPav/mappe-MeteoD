@@ -25,7 +25,7 @@ if os.path.exists(OUTDIR):
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 os.makedirs(OUTDIR, exist_ok=True)
 
-# Area Europa (dataset CAMS: N, S, W, E)[web:16][web:11]
+# Area Europa (dataset CAMS: N, S, W, E)
 NORD, SUD, OVEST, EST = 54, 31, -10, 31
 
 # --- ADS (nuovo endpoint) ---
@@ -235,7 +235,6 @@ def run_job():
         print("🎨 Inizio generazione mappe...")
         ds = xr.open_dataset(file_nc)
 
-        # time/run handling: CAMS Europe ha forecast orario 0–96h dal run 00 UTC[web:11]
         if "time" in ds.coords and ds.time.size > 1:
             run_dt = pd_to_dt(ds.time.values[0])
             steps = ds.time.values
@@ -271,7 +270,6 @@ def run_job():
                 if not short_name:
                     continue
 
-                # selezione temporale
                 if time_iter:
                     da = ds[var_nc_name].sel(time=val)
                 else:
@@ -284,7 +282,6 @@ def run_job():
                     )
                     da = ds[var_nc_name].isel(**idx_dict)
 
-                # riduci dimensioni: tieni solo lat/lon (2D)
                 if "level" in da.dims:
                     da = da.sel(level=da.level.min())
                 if "model" in da.dims:
@@ -294,7 +291,6 @@ def run_job():
 
                 data = clip_lon_lat(da) * 1e9  # kg/m3 -> µg/m3
 
-                # ora data deve essere 2D (lat, lon)
                 if data.ndim != 2:
                     print(f"⚠️ Skip {short_name} +{lead_hours}h: data.ndim={data.ndim}")
                     continue
@@ -348,7 +344,6 @@ def run_job():
     except Exception as e:
         print(f"❌ Errore elaborazione: {e}")
         import traceback
-
         traceback.print_exc()
         sys.exit(1)
 
