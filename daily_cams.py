@@ -25,8 +25,10 @@ if os.path.exists(OUTDIR):
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 os.makedirs(OUTDIR, exist_ok=True)
 
-# Area Europa (dataset CAMS: N, S, W, E)
-NORD, SUD, OVEST, EST = 70, 30, -25, 40
+# MODIFICA 3: Area Europa Full Domain (CAMS standard: 25W - 45E, 30N - 72N)
+# Nota: Ho interpretato "east boundary=25W" e "west=45E" invertendo i valori 
+# per conformità geografica (Ovest è negativo, Est è positivo).
+NORD, SUD, OVEST, EST = 72, 30, -25, 45
 
 # --- ADS (nuovo endpoint) ---
 ADS_URL = "https://ads.atmosphere.copernicus.eu/api"
@@ -115,7 +117,11 @@ def clip_lon_lat(data):
 
 def setup_map():
     fig = plt.figure(figsize=(12, 10))
+    # MODIFICA: Per il full domain spesso conviene una proiezione diversa, 
+    # ma PlateCarree va bene per semplicità.
     ax = plt.axes(projection=ccrs.PlateCarree())
+    ax.set_extent([OVEST, EST, SUD, NORD], crs=ccrs.PlateCarree())
+    
     ax.coastlines(linewidths=1.0, resolution="10m")
     ax.add_feature(cfeature.BORDERS, edgecolor="black", linewidth=1.0)
     ax.add_feature(cfeature.LAND, facecolor="#f0f0f0")
@@ -125,26 +131,22 @@ def setup_map():
 def add_title(ax, var_key, valid_dt, run_dt, lead_hours):
     full_name = VAR_CONFIG[var_key]["title"]
     
-    # Data Run (dd/mm/YYYY)
+    # MODIFICA 1: Data Run forzata alla data di start/download
     run_date_str = run_dt.strftime("%d/%m/%Y")
     
     # Validità formattata: "dd/mm/YYYY HH (+XXh)"
     valid_raw = f"{valid_dt.strftime('%d/%m/%Y %H')} (+{lead_hours}h)"
-    # Escape degli spazi per LaTeX
-    valid_latex = valid_raw.replace(" ", "\\ ")
+    valid_latex = valid_raw.replace(" ", "\\\\ ")
     
-    # Titolo Principale (Grassetto)
-    main_title = r"$\bf{" + full_name.replace(" ", "\\ ") + "}$"
+    main_title = r"$\\bf{" + full_name.replace(" ", "\\\\ ") + "}$"
     
-    # Sottotitolo
-    # CAMS (Bold) + run (Normal) + Validità (Bold)
     sub_title = (
-        r"$\bf{CAMS}$"
+        r"$\\bf{CAMS}$"
         f" run: {run_date_str} 00z | Validità: "
-        r"$\bf{" + valid_latex + "}$"
+        r"$\\bf{" + valid_latex + "}$"
     )
     
-    final_title = f"{main_title}\n{sub_title}"
+    final_title = f"{main_title}\\n{sub_title}"
     
     ax.set_title(final_title, loc="center", fontsize=12)
     
@@ -252,28 +254,26 @@ def run_job():
         print("🎨 Inizio generazione mappe...")
         ds = xr.open_dataset(file_nc)
 
-        # time/run handling
+        # MODIFICA 1: Forziamo la run_dt a 'today' (data di download/start)
+        # Convertiamo 'today' (date) in datetime per i calcoli
+        run_dt = datetime.datetime(today.year, today.month, today.day, 0, 0, 0)
+        
+        # Gestione steps temporali
         if "time" in ds.coords and ds.time.size > 1:
-            run_dt = pd_to_dt(ds.time.values[0])
             steps = ds.time.values
             time_iter = True
         else:
-            if "time" in ds.coords:
-                val_t = ds.time.values if np.ndim(ds.time.values) == 0 else ds.time.values[0]
-                run_dt = pd_to_dt(val_t)
-            else:
-                run_dt = datetime.datetime.now(datetime.timezone.utc).replace(
-                    hour=0, minute=0, second=0, microsecond=0
-                )
             steps = ds.step.values if "step" in ds.coords else ds.leadtime.values
             time_iter = False
 
         for i, val in enumerate(steps):
             if time_iter:
+                # Se iteriamo su 'time', calcoliamo la leadtime come differenza
                 valid_dt_utc = pd_to_dt(val)
                 diff_hours = (valid_dt_utc - run_dt).total_seconds() / 3600
                 lead_hours = int(round(diff_hours))
             else:
+                # Se iteriamo su 'step'/'leadtime', aggiungiamo le ore alla run_dt
                 hours_added = int(val.astype("timedelta64[h]").astype(int))
                 valid_dt_utc = run_dt + datetime.timedelta(hours=hours_added)
                 lead_hours = hours_added
@@ -309,9 +309,8 @@ def run_job():
                 if "ensemble" in da.dims:
                     da = da.mean("ensemble")
 
-                data = clip_lon_lat(da)  # µg/m3
+                data = clip_lon_lat(da)
 
-                # ora data deve essere 2D (lat, lon)
                 if data.ndim != 2:
                     print(f"⚠️ Skip {short_name} +{lead_hours}h: data.ndim={data.ndim}")
                     continue
@@ -319,6 +318,8 @@ def run_job():
                 cmap, norm, levels, unit = get_aqi_colormap(short_name)
 
                 fig, ax = setup_map()
+                
+                # Plot
                 if levels:
                     cf = ax.contourf(
                         data.lon,
@@ -338,9 +339,12 @@ def run_job():
                         extend="max",
                     )
 
+                # Titolo con Run Date fissa su 'today'
                 add_title(ax, short_name, valid_dt_loc, run_dt, lead_hours)
+                
+                # MODIFICA 2: Colorbar più stretta (shrink=0.7)
                 cbar = plt.colorbar(
-                    cf, orientation="horizontal", pad=0.02, shrink=0.8, label=unit
+                    cf, orientation="horizontal", pad=0.02, shrink=0.7, label=unit
                 )
                 cbar.ax.tick_params(labelsize=8)
 
@@ -365,7 +369,6 @@ def run_job():
     except Exception as e:
         print(f"❌ Errore elaborazione: {e}")
         import traceback
-
         traceback.print_exc()
         sys.exit(1)
 
