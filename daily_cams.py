@@ -26,20 +26,14 @@ os.makedirs(OUTDIR, exist_ok=True)
 NORD, SUD, OVEST, EST = 54, 31, -10, 31 
 
 # --- GESTIONE CREDENZIALI NUOVO ADS ---
-
-# 1. URL ADS (Corretto: SENZA /v2)
 ADS_URL = "https://ads.atmosphere.copernicus.eu/api"
 
-# 2. Pulizia Key (Rimuove UID se presente)
 raw_key = os.environ.get("CDS_API_KEY", "")
 if ":" in raw_key:
-    # Se la chiave è tipo "12345:xxxxx-xxxx...", prende solo "xxxxx-xxxx..."
     CDS_KEY = raw_key.split(":")[1]
-    print(f"ℹ️ Chiave API rilevata formato vecchio. UID rimosso per compatibilità ADS.")
 else:
     CDS_KEY = raw_key
 
-# 3. Credenziali R2
 R2_ENDPOINT = os.environ.get("R2_ENDPOINT")
 R2_ACCESS_KEY = os.environ.get("R2_ACCESS_KEY")
 R2_SECRET_KEY = os.environ.get("R2_SECRET_KEY")
@@ -84,11 +78,18 @@ def get_aqi_colormap(pollutant):
     return plt.cm.viridis, None, None, ""
 
 def clip_lon_lat(data):
+    # 1. Standardizza nomi
     if 'latitude' in data.coords:
-        return data.sel(latitude=slice(NORD, SUD), longitude=slice(OVEST, EST))
-    elif 'lat' in data.coords:
-        return data.sel(lat=slice(NORD, SUD), lon=slice(OVEST, EST))
-    return data
+        data = data.rename({'latitude': 'lat', 'longitude': 'lon'})
+    
+    # 2. Ordina coordinate (Fix KeyError -10)
+    data = data.sortby(['lat', 'lon'])
+
+    # 3. Slice robusto (min -> max)
+    lat_min, lat_max = min(NORD, SUD), max(NORD, SUD)
+    lon_min, lon_max = min(OVEST, EST), max(OVEST, EST)
+    
+    return data.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
 
 def setup_map():
     fig = plt.figure(figsize=(12, 10))
@@ -154,9 +155,7 @@ def run_job():
         sys.exit(1)
 
     try:
-        # Configurazione client esplicita per il nuovo ADS
         client = cdsapi.Client(url=ADS_URL, key=CDS_KEY)
-        
         today = datetime.datetime.now(datetime.timezone.utc).date()
         date_query = f"{today}/{today}"
         
@@ -196,20 +195,19 @@ def run_job():
         
     except Exception as e:
         print(f"❌ Errore Critico Download: {e}")
-        print("Nota: Verifica di aver accettato la licenza del dataset su ads.atmosphere.copernicus.eu")
         sys.exit(1)
 
     try:
         print("🎨 Inizio generazione mappe...")
+        # Usa decode_times=True (default) per gestire le date standard
         ds = xr.open_dataset(file_nc)
         
-        # Gestione tempo flessibile (a volte cambia tra versioni del dataset)
+        # Logica temporale
         if 'time' in ds.coords and ds.time.size > 1:
             run_dt = pd_to_dt(ds.time.values[0])
             steps = ds.time.values
             time_iter = True
         else:
-            # Fallback se la dimensione temporale principale è 'step' o 'leadtime'
             if 'time' in ds.coords:
                 val_t = ds.time.values if np.ndim(ds.time.values)==0 else ds.time.values[0]
                 run_dt = pd_to_dt(val_t)
@@ -245,15 +243,17 @@ def run_job():
                     idx_dict = {'step': i} if 'step' in ds.coords else {'leadtime': i} if 'leadtime' in ds.coords else {'time': i}
                     data_slice = ds[var_nc_name].isel(**idx_dict)
 
+                # CLIPIAMO E CONVERTIAMO
                 data = clip_lon_lat(data_slice) * 1e9
                 
                 cmap, norm, levels, unit = get_aqi_colormap(short_name)
                 
                 fig, ax = setup_map()
                 if levels:
-                    cf = ax.contourf(data.longitude, data.latitude, data, levels=levels, cmap=cmap, norm=norm, extend='max')
+                    # Usa .lon e .lat standardizzati dalla funzione clip_lon_lat
+                    cf = ax.contourf(data.lon, data.lat, data, levels=levels, cmap=cmap, norm=norm, extend='max')
                 else:
-                    cf = ax.contourf(data.longitude, data.latitude, data, cmap=cmap, extend='max')
+                    cf = ax.contourf(data.lon, data.lat, data, cmap=cmap, extend='max')
                 
                 add_title(ax, short_name, valid_dt_loc, run_dt, lead_hours)
                 cbar = plt.colorbar(cf, orientation='horizontal', pad=0.02, shrink=0.8, label=unit)
@@ -263,7 +263,7 @@ def run_job():
                 filename = f"{tag}_{timestep_str}.webp"
                 filepath = os.path.join(OUTDIR, filename)
                 
-                plt.savefig(filepath, dpi=100, bbox_inches='tight', format='webp')
+                plt.savefig(filepath, dpi=100, bbox_inches='tight', format='webp', pil_kwargs={'quality': 70})
                 plt.close(fig)
                 
                 upload_to_r2(filepath, f"{R2_FOLDER}/{filename}")
