@@ -235,10 +235,10 @@ if os.path.exists(SHP_PATH):
 def setup_map():
     fig = plt.figure(figsize=(12, 10))
     ax = plt.axes(projection=ccrs.PlateCarree())
-    ax.coastlines(linewidth=0.8)
-    ax.add_feature(cfeature.BORDERS, linewidth=0.8, edgecolor='black')
+    ax.coastlines(=1.0)
+    ax.add_feature(cfeature.BORDERS, =1.0, edgecolor='black')
     if regions_geom is not None:
-        ax.add_geometries(regions_geom, ccrs.PlateCarree(), facecolor='none', edgecolor='darkgray', linewidth=0.6)
+        ax.add_geometries(regions_geom, ccrs.PlateCarree(), facecolor='none', edgecolor='darkgray', =0.7)
     ax.set_extent(MAP_EXTENT, crs=ccrs.PlateCarree())
     return fig, ax
 
@@ -249,7 +249,7 @@ def add_mslp(ax, msl_da):
     mx = np.ceil(msl_da.max() / 2) * 2 + 1
     levels = np.arange(mn, mx, 2)
     lws = [1 if (abs(l - 1000) % 8 == 0) else 0.6 for l in levels]
-    cs = ax.contour(x, y, msl_da, levels=levels, colors="k", linewidths=lws, alpha=0.9)
+    cs = ax.contour(x, y, msl_da, levels=levels, colors="k", s=lws, alpha=0.9)
     ax.clabel(cs, fmt="%d", fontsize=8, inline=True, colors='k')
 
 def save_plot(name):
@@ -483,7 +483,7 @@ for idx, day in enumerate(days):
     t_min_val = t_day.min("time")
     fig, ax = setup_map()
     cf = ax.contourf(t_min_val.longitude, t_min_val.latitude, t_min_val, levels=boundaries_t, cmap=cmap_t, norm=norm_t, extend="both")
-    cs = ax.contour(t_min_val.longitude, t_min_val.latitude, t_min_val, levels=levs_lines, colors="#555555", linewidths=0.3)
+    cs = ax.contour(t_min_val.longitude, t_min_val.latitude, t_min_val, levels=levs_lines, colors="#555555", s=0.3)
     ax.clabel(cs, inline=True, fontsize=7, fmt='%d') 
     finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Temperatura Minima", "Giornaliera", "Temperatura (°C)", explicit_ticks=ticks_t_lines)
     save_plot(os.path.join(OUTDIR, fname))
@@ -493,7 +493,7 @@ for idx, day in enumerate(days):
     t_max_val = t_day.max("time")
     fig, ax = setup_map()
     cf = ax.contourf(t_max_val.longitude, t_max_val.latitude, t_max_val, levels=boundaries_t, cmap=cmap_t, norm=norm_t, extend="both")
-    cs = ax.contour(t_max_val.longitude, t_max_val.latitude, t_max_val, levels=levs_lines, colors="#555555", linewidths=0.3)
+    cs = ax.contour(t_max_val.longitude, t_max_val.latitude, t_max_val, levels=levs_lines, colors="#555555", s=0.3)
     ax.clabel(cs, inline=True, fontsize=7, fmt='%d') 
     finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Temperatura Massima", "Giornaliera", "Temperatura (°C)", explicit_ticks=ticks_t_lines)
     save_plot(os.path.join(OUTDIR, fname))
@@ -505,7 +505,7 @@ for idx, day in enumerate(days):
         g_max_val = vmax_day.max("time")
         fig, ax = setup_map()
         cf = ax.contourf(g_max_val.longitude, g_max_val.latitude, g_max_val, levels=boundaries_g, cmap=cmap_g, norm=norm_g, extend="max")
-        ax.contour(g_max_val.longitude, g_max_val.latitude, g_max_val, levels=[50, 100], colors="black", linewidths=0.3, alpha=0.5)
+        ax.contour(g_max_val.longitude, g_max_val.latitude, g_max_val, levels=[50, 100], colors="black", s=0.3, alpha=0.5)
         finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Raffica di vento massima", "Giornaliera", "Intensità della raffica (km/h)", explicit_ticks=boundaries_g)
         save_plot(os.path.join(OUTDIR, fname))
         generated_files.append({"name": fname, "step": day_step})
