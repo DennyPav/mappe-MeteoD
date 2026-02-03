@@ -11,7 +11,68 @@ import os
 import boto3
 import sys
 import shutil
-import zipfile
+import zipfiledef get_aqi_colormap(pollutant):
+    """
+    Restituisce colormap e livelli.
+    Regola fondamentale: len(colors) deve essere SEMPRE uguale a len(levels) - 1.
+    """
+    
+    if pollutant == 'no2': 
+        # 8 Livelli -> 7 Intervalli
+        levels = [0, 20, 40, 90, 120, 230, 340, 1000]
+        
+        # 7 Colori necessari
+        colors = [
+            '#009966', # 0-20 (Buono)
+            '#ffde33', # 20-40 (Discreto)
+            '#ff9933', # 40-90 (Moderato)
+            '#cc0033', # 90-120 (Povero)
+            '#660099', # 120-230 (Pessimo)
+            '#7e0023', # 230-340 (Severo)
+            '#000000'  # 340-1000 (Pericoloso - Aggiunto per fixare l'errore)
+        ]
+        
+        cmap = ListedColormap(colors)
+        norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+        return cmap, norm, levels, "µg/m³"
+
+    elif pollutant == 'o3':
+        # 11 Livelli -> 10 Intervalli
+        levels = [0, 50, 80, 100, 120, 140, 160, 180, 200, 240, 300]
+        
+        # 10 Colori necessari
+        colors = [
+            '#009966', # 0-50
+            '#33cc33', # 50-80
+            '#ccff33', # 80-100
+            '#ffff00', # 100-120
+            '#ffcc00', # 120-140
+            '#ff6600', # 140-160
+            '#ff0000', # 160-180
+            '#cc0000', # 180-200
+            '#990099', # 200-240
+            '#660066'  # 240-300
+        ]
+        
+        cmap = ListedColormap(colors)
+        norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+        return cmap, norm, levels, "µg/m³"
+
+    elif pollutant in ['pm2p5', 'pm10']:
+        if pollutant == 'pm2p5':
+            levels = [0, 5, 10, 15, 20, 25, 35, 50, 75, 100]
+        else:
+            levels = [0, 10, 20, 30, 40, 50, 75, 100, 150, 200]
+        
+        # Genera dinamicamente il numero esatto di colori richiesti (len(levels)-1)
+        n_intervals = len(levels) - 1
+        cmap_base = plt.get_cmap('Spectral_r', n_intervals)
+        
+        norm = BoundaryNorm(levels, ncolors=cmap_base.N, clip=True)
+        return cmap_base, norm, levels, "µg/m³"
+    
+    return plt.cm.viridis, None, None, ""
+
 
 # ================= CONFIGURAZIONE =================
 
@@ -52,15 +113,48 @@ VAR_CONFIG = {
 # ================= FUNZIONI DI SUPPORTO =================
 
 def get_aqi_colormap(pollutant):
+    """
+    Restituisce colormap e livelli.
+    Regola fondamentale: len(colors) deve essere SEMPRE uguale a len(levels) - 1.
+    """
+    
     if pollutant == 'no2': 
+        # 8 Livelli -> 7 Intervalli
         levels = [0, 20, 40, 90, 120, 230, 340, 1000]
-        cmap = ListedColormap(['#009966', '#ffde33', '#ff9933', '#cc0033', '#660099', '#7e0023'])
+        
+        # 7 Colori necessari
+        colors = [
+            '#009966', # 0-20 (Buono)
+            '#ffde33', # 20-40 (Discreto)
+            '#ff9933', # 40-90 (Moderato)
+            '#cc0033', # 90-120 (Povero)
+            '#660099', # 120-230 (Pessimo)
+            '#7e0023', # 230-340 (Severo)
+            '#000000'  # 340-1000 (Pericoloso - Aggiunto per fixare l'errore)
+        ]
+        
+        cmap = ListedColormap(colors)
         norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
         return cmap, norm, levels, "µg/m³"
 
     elif pollutant == 'o3':
+        # 11 Livelli -> 10 Intervalli
         levels = [0, 50, 80, 100, 120, 140, 160, 180, 200, 240, 300]
-        colors = ['#009966', '#33cc33', '#ccff33', '#ffff00', '#ffcc00', '#ff6600', '#ff0000', '#cc0000', '#990099', '#660066']
+        
+        # 10 Colori necessari
+        colors = [
+            '#009966', # 0-50
+            '#33cc33', # 50-80
+            '#ccff33', # 80-100
+            '#ffff00', # 100-120
+            '#ffcc00', # 120-140
+            '#ff6600', # 140-160
+            '#ff0000', # 160-180
+            '#cc0000', # 180-200
+            '#990099', # 200-240
+            '#660066'  # 240-300
+        ]
+        
         cmap = ListedColormap(colors)
         norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
         return cmap, norm, levels, "µg/m³"
@@ -71,11 +165,15 @@ def get_aqi_colormap(pollutant):
         else:
             levels = [0, 10, 20, 30, 40, 50, 75, 100, 150, 200]
         
-        cmap_base = plt.get_cmap('Spectral_r', len(levels)-1)
+        # Genera dinamicamente il numero esatto di colori richiesti (len(levels)-1)
+        n_intervals = len(levels) - 1
+        cmap_base = plt.get_cmap('Spectral_r', n_intervals)
+        
         norm = BoundaryNorm(levels, ncolors=cmap_base.N, clip=True)
         return cmap_base, norm, levels, "µg/m³"
     
     return plt.cm.viridis, None, None, ""
+
 
 def clip_lon_lat(data):
     # 1. Standardizza nomi
