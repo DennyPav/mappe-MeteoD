@@ -118,8 +118,7 @@ def setup_map(regions_geom=None):
             crs=ccrs.PlateCarree(), 
             facecolor='none', 
             edgecolor='black', 
-            linewidth=0.5,       # <--- PIÙ SOTTILI (0.4 vs 1.0)
-            alpha=0.6            # Leggera trasparenza per non appesantire
+            linewidth=0.5
         )
 
     # 3. Aggiungi Coste e Confini Nazionali (Più spessi)
