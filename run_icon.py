@@ -37,7 +37,7 @@ WORKDIR = os.path.join(BASE_DIR, "icon_data")
 OUTDIR = os.path.join(BASE_DIR, "icon_output")
 SHP_PATH = os.path.join(BASE_DIR, "Reg01012025_g_WGS84.shp")
 PROV_PATH = os.path.join(BASE_DIR, "province_bullet.geojson")
-CAPOLUOGHI_GEOJSON_PATH = os.path.join(DATA_DIR, "capoluoghi_bullet.geojson")
+CAPOLUOGHI_GEOJSON_PATH = os.path.join(BASE_DIR, "capoluoghi_bullet.geojson")
 
 os.makedirs(WORKDIR, exist_ok=True)
 os.makedirs(OUTDIR, exist_ok=True)
