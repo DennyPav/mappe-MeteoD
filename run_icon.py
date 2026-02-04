@@ -258,6 +258,7 @@ if os.path.exists(CAPOLUOGHI_GEOJSON_PATH):
 def setup_map():
     fig = plt.figure(figsize=(12, 10))
     ax = plt.axes(projection=ccrs.PlateCarree())
+    ax.set_extent(MAP_EXTENT)
     ax.coastlines(edgecolor='#555555', linewidth=1.0, zorder=20)
     ax.add_feature(cfeature.BORDERS, linewidth=1.0, edgecolor='#555555', zorder=21)
     if regions_geom is not None:
