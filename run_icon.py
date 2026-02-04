@@ -284,6 +284,8 @@ def setup_map():
             transform=ccrs.PlateCarree(), 
             zorder=35
         )
+    return fig, ax
+
 
 def add_mslp(ax, msl_da):
     if "latitude" not in msl_da.coords: return
