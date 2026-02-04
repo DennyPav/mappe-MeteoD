@@ -530,9 +530,9 @@ for idx, day in enumerate(days):
     fig, ax = setup_map()
     cf = ax.contourf(t_min_val.longitude, t_min_val.latitude, t_min_val, levels=boundaries_t, cmap=cmap_t, norm=norm_t, extend="both")
     cs = ax.contour(t_min_val.longitude, t_min_val.latitude, t_min_val, levels=levs_lines, colors="#555555", linewidths=0.2)
-    ax.clabel(cs, inline=True, fontsize=7, fmt='%d') 
-    for label in labels:
-        label.set_rotation(0)
+    labels = ax.clabel(cs, inline=True, fontsize=7, fmt='%d')
+    for lbl in labels:
+        lbl.set_rotation(0)
     finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Temperatura Minima", "Giornaliera", "Temperatura (°C)", explicit_ticks=ticks_t_lines)
     save_plot(os.path.join(OUTDIR, fname))
     generated_files.append({"name": fname, "step": day_step})
@@ -542,9 +542,9 @@ for idx, day in enumerate(days):
     fig, ax = setup_map()
     cf = ax.contourf(t_max_val.longitude, t_max_val.latitude, t_max_val, levels=boundaries_t, cmap=cmap_t, norm=norm_t, extend="both")
     cs = ax.contour(t_max_val.longitude, t_max_val.latitude, t_max_val, levels=levs_lines, colors="#555555", linewidths=0.2)
-    ax.clabel(cs, inline=True, fontsize=7, fmt='%d') 
-    for label in labels:
-        label.set_rotation(0)
+    labels = ax.clabel(cs, inline=True, fontsize=7, fmt='%d')
+    for lbl in labels:
+        lbl.set_rotation(0)
     finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Temperatura Massima", "Giornaliera", "Temperatura (°C)", explicit_ticks=ticks_t_lines)
     save_plot(os.path.join(OUTDIR, fname))
     generated_files.append({"name": fname, "step": day_step})
