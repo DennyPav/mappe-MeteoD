@@ -173,7 +173,7 @@ nord, sud, ovest, est = 70, 28, -28, 48
 # COLORMAPS (Ridotte per brevità - mantieni le tue complete)
 colors_t = ["#ad99ad", "#948094", "#7a667a", "#614D61", "#473347", "#3D1A57", "#330066", "#460073", "#59007f", "#6C00BF", "#7f00ff", "#4040FF", "#007fff", "#00A6FF", "#00ccff", "#00E6FF", "#00ffff", "#13F2CC", "#26e599", "#56C943", "#66bf26", "#93D226", "#bfe526", "#EFF969", "#ffff7f", "#FFFF5C", "#ffff00", "#FFEC00", "#ffd900", "#FFC500", "#ffb000", "#FF9100", "#ff7200", "#FF3900", "#ff0000", "#E60000", "#cc0000", "#A60016", "#7f002c", "#A61F4D", "#cc3d6e", "#E61FB7", "#ff00ff", "#FF40FF", "#ff7fff", "#ffbfff"]
 boundaries_t = np.arange(-46, 48, 2); cmap_t = ListedColormap(colors_t); norm_t = BoundaryNorm(boundaries_t, cmap_t.N)
-colors_p = ["#ffffff", "#C2E7FF", "#47BFFF", "#0055ff", "#0000aa", "#32cd32", "#008000", "#ffff00", "#ff9900", "#b30000", "#ff00ff", "#4b0082"]
+colors_p = ["#ffffff", "#C2E7FF", "#47BFFF", "#0055ff", "#0000aa", "#32cd32", "#008000", "#ffff00", "#ff9900", "#b30000", "#4b0082", "#ff00ff"]
 boundaries_p = [0,0.1,0.5,1,3,5,7,10,15,20,30,40,50]; cmap_p = ListedColormap(colors_p); norm_p = BoundaryNorm(boundaries_p, cmap_p.N, clip=False)
 colors_snow = ["#e5f5e0", "#c7e9c0", "#a1d99b", "#74c476", "#41ab5d", "#e0e0e0", "#c0c0c0", "#a0a0a0", "#fde0dd", "#fcc5c0", "#fa9fb5", "#f768a1", "#dd3497", "#ae017e", "#7a0177", "#49006a"]
 boundaries_snow = [0.1, 1, 2, 5, 10, 20, 30, 40, 50, 70, 100, 150, 200, 250, 300]; cmap_snow = ListedColormap(colors_snow); cmap_snow.set_under('none'); norm_snow = BoundaryNorm(boundaries_snow, cmap_snow.N, clip=False)
