@@ -37,6 +37,7 @@ WORKDIR = os.path.join(BASE_DIR, "icon_data")
 OUTDIR = os.path.join(BASE_DIR, "icon_output")
 SHP_PATH = os.path.join(BASE_DIR, "Reg01012025_g_WGS84.shp")
 PROV_PATH = os.path.join(BASE_DIR, "province_bullet.geojson")
+CAPOLUOGHI_GEOJSON_PATH = os.path.join(DATA_DIR, "capoluoghi_bullet.geojson")
 
 os.makedirs(WORKDIR, exist_ok=True)
 os.makedirs(OUTDIR, exist_ok=True)
@@ -244,6 +245,16 @@ if os.path.exists(PROV_PATH):
     except Exception as e:
         print(f"⚠️ Errore Province GeoJSON: {e}", flush=True)
 
+print("🗺️ Caricamento capoluoghi...", flush=True)
+capoluoghi_gdf = None
+if os.path.exists(CAPOLUOGHI_GEOJSON_PATH):
+    try:
+        # Carica e converte in WGS84 per sicurezza
+        capoluoghi_gdf = gpd.read_file(CAPOLUOGHI_GEOJSON_PATH).to_crs(epsg=4326)
+        print("✅ Province GeoJSON OK!", flush=True)
+    except Exception as e:
+        print(f"⚠️ Errore capoluoghi GeoJSON: {e}", flush=True)
+
 def setup_map():
     fig = plt.figure(figsize=(12, 10))
     ax = plt.axes(projection=ccrs.PlateCarree())
@@ -260,11 +271,19 @@ def setup_map():
             c='black', 
             s=2,     # Dimensione pallino
             transform=ccrs.PlateCarree(), 
-            zorder=30,
-            alpha=0.6 # Opzionale: leggera trasparenza per non essere troppo invasivi
+            zorder=30
         )
-    ax.set_extent(MAP_EXTENT, crs=ccrs.PlateCarree())
-    return fig, ax
+    # 3. === AGGIUNTA CAPOLUOGHI (PALLINI) ===
+    if capoluoghi_gdf is not None:
+        # Assumiamo che il GeoJSON contenga Point. Se contiene poligoni, usa .centroid
+        ax.scatter(
+            capoluoghi_gdf.geometry.x, 
+            capoluoghi_gdf.geometry.y, 
+            c='red', 
+            s=2,     # Dimensione pallino
+            transform=ccrs.PlateCarree(), 
+            zorder=35
+        )
 
 def add_mslp(ax, msl_da):
     if "latitude" not in msl_da.coords: return
@@ -507,7 +526,7 @@ for idx, day in enumerate(days):
     t_min_val = t_day.min("time")
     fig, ax = setup_map()
     cf = ax.contourf(t_min_val.longitude, t_min_val.latitude, t_min_val, levels=boundaries_t, cmap=cmap_t, norm=norm_t, extend="both")
-    cs = ax.contour(t_min_val.longitude, t_min_val.latitude, t_min_val, levels=levs_lines, colors="#555555", s=0.1)
+    cs = ax.contour(t_min_val.longitude, t_min_val.latitude, t_min_val, levels=levs_lines, colors="#555555", linewidths=0.3)
     ax.clabel(cs, inline=True, fontsize=7, fmt='%d') 
     finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Temperatura Minima", "Giornaliera", "Temperatura (°C)", explicit_ticks=ticks_t_lines)
     save_plot(os.path.join(OUTDIR, fname))
@@ -517,7 +536,7 @@ for idx, day in enumerate(days):
     t_max_val = t_day.max("time")
     fig, ax = setup_map()
     cf = ax.contourf(t_max_val.longitude, t_max_val.latitude, t_max_val, levels=boundaries_t, cmap=cmap_t, norm=norm_t, extend="both")
-    cs = ax.contour(t_max_val.longitude, t_max_val.latitude, t_max_val, levels=levs_lines, colors="#555555", s=0.1)
+    cs = ax.contour(t_max_val.longitude, t_max_val.latitude, t_max_val, levels=levs_lines, colors="#555555", linewidths=0.3)
     ax.clabel(cs, inline=True, fontsize=7, fmt='%d') 
     finalize_plot(fig, ax, cf, run_datetime_obj, ts_day, "Temperatura Massima", "Giornaliera", "Temperatura (°C)", explicit_ticks=ticks_t_lines)
     save_plot(os.path.join(OUTDIR, fname))
