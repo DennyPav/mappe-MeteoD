@@ -145,10 +145,6 @@ def add_title(ax, var_key, valid_dt_loc, run_dt_utc, lead_hours):
     ax.text(0.5, 1.02, subtitle, transform=ax.transAxes, 
             ha='center', va='bottom', fontsize=11)
     
-    ax.text(
-        0.99, 0.01, "Data: CAMS/Copernicus - Processing: Python",
-        transform=ax.transAxes, fontsize=8, color="gray", ha="right", va="bottom"
-    )
 
 def upload_to_r2(file_path, object_name):
     if not R2_ACCESS_KEY or not R2_SECRET_KEY:
