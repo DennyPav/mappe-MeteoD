@@ -13,7 +13,8 @@ import sys
 import shutil
 import zipfile
 import pandas as pd
-import geopandas as gpd  # <--- NUOVO IMPORT
+import geopandas as gpd
+import json
 
 # ================= CONFIGURAZIONE =================
 
@@ -253,6 +254,9 @@ def run_job():
             print("❌ Dimensione temporale mancante")
             sys.exit(1)
 
+                # Inizializza la lista per lo status JSON
+        status_files = []
+        
         # Loop Temporale
         for i, val in enumerate(steps_values):
             
@@ -306,43 +310,34 @@ def run_job():
                 plt.close(fig)
                 upload_to_r2(filepath, f"{R2_FOLDER}/{filename}")
 
-                ds.close()
+                # Aggiungiamo il file generato alla lista per il JSON
+                status_files.append({
+                    "name": filename,
+                    "step": hours_added
+                })
+
+        # --- ATTENZIONE: FINE DEL LOOP ---
+        # Da qui in poi deve essere tutto allineato col "for i, val..." principale
         
-        # --- GENERAZIONE STATUS.JSON ---
-        import json
+        ds.close()
+
+        # --- GENERAZIONE STATUS.JSON UNIFORMATA ---
         
-        # Formattiamo la data del run come stringa (es. 202604150000)
-        run_date_str = run_dt_utc.strftime("%Y%m%d%H%M")
-        
-        status_files = []
-        # Registriamo tutti i timestep (da 0 a 96) che sono stati processati
-        for lead in leadtimes:
-            # Salviamo un riferimento per ogni step temporale. 
-            # Non serve elencare tutte le singole variabili, basta lo step per generare l'array in Kotlin
-            step_int = int(lead)
-            timestep_str = f"{step_int:02d}"
-            # Usiamo un prefisso generico, l'app sa già come comporre il nome finale combinandolo con il prefisso della variabile
-            status_files.append({
-                "name": f"{timestep_str}.webp",
-                "step": step_int
-            })
-            
+        # Formato identico a ECMWF: "20260415_0000"
+        run_date_str = run_dt_utc.strftime("%Y%m%d_%H%M")
+
         status_data = {
-            "rundate": run_date_str,
+            "run_date": run_date_str,
+            "base_path": "CAMS",
             "files": status_files
         }
-        
+
         status_json_path = os.path.join(OUTDIR, "statuscams.json")
         with open(status_json_path, "w") as f:
             json.dump(status_data, f, indent=4)
-            
-        # Carica il JSON su R2 nella root CAMS
+    
         upload_to_r2(status_json_path, f"{R2_FOLDER}/statuscams.json")
-        
-        print("✅ Status JSON generato e caricato.")
-        # -------------------------------
-        
-        print("✅ Job completato.")
+        print("✅ Status JSON generato e caricato in formato ECMWF.")
 
     except Exception as e:
         print(f"❌ Errore: {e}")
