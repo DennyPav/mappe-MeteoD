@@ -306,7 +306,42 @@ def run_job():
                 plt.close(fig)
                 upload_to_r2(filepath, f"{R2_FOLDER}/{filename}")
 
-        ds.close()
+                ds.close()
+        
+        # --- GENERAZIONE STATUS.JSON ---
+        import json
+        
+        # Formattiamo la data del run come stringa (es. 202604150000)
+        run_date_str = run_dt_utc.strftime("%Y%m%d%H%M")
+        
+        status_files = []
+        # Registriamo tutti i timestep (da 0 a 96) che sono stati processati
+        for lead in leadtimes:
+            # Salviamo un riferimento per ogni step temporale. 
+            # Non serve elencare tutte le singole variabili, basta lo step per generare l'array in Kotlin
+            step_int = int(lead)
+            timestep_str = f"{step_int:02d}"
+            # Usiamo un prefisso generico, l'app sa già come comporre il nome finale combinandolo con il prefisso della variabile
+            status_files.append({
+                "name": f"{timestep_str}.webp",
+                "step": step_int
+            })
+            
+        status_data = {
+            "rundate": run_date_str,
+            "files": status_files
+        }
+        
+        status_json_path = os.path.join(OUTDIR, "statuscams.json")
+        with open(status_json_path, "w") as f:
+            json.dump(status_data, f, indent=4)
+            
+        # Carica il JSON su R2 nella root CAMS
+        upload_to_r2(status_json_path, f"{R2_FOLDER}/statuscams.json")
+        
+        print("✅ Status JSON generato e caricato.")
+        # -------------------------------
+        
         print("✅ Job completato.")
 
     except Exception as e:
