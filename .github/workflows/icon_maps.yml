@@ -3,8 +3,8 @@ name: ICON-2I
 on:
   schedule:
     # 03:45 UTC e 14:45 UTC
-    - cron: "45 3 * * *"
-    - cron: "45 14 * * *"
+    - cron: "05 3 * * *"
+    - cron: "05 14 * * *"
   workflow_dispatch:
 
 jobs:
