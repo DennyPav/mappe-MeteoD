@@ -124,7 +124,7 @@ clean_old_runs(OUTDIR, DATE_TAG, RUN_STR)
 
 # ==================== STEPS & DOWNLOAD ====================
 steps = list(range(0, 145, 3)) + list(range(150, 361, 6))
-client = Client(source="ecmwf")
+client = Client(source="azure")
 
 def check_and_download(key, params, levels=None, levtype="pl"):
     fpath = FILES[key]
