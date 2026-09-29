@@ -2,7 +2,7 @@ name: CAMS
 
 on:
   schedule:
-    - cron: '30 08 * * *' # 8:45 UTC
+    - cron: '30 06 * * *' # 8:45 UTC
   workflow_dispatch:
 
 jobs:
