@@ -97,10 +97,10 @@ if RUN_OVERRIDE:
         raise ValueError("ECMWF_RUN deve avere il formato YYYYMMDDHH") from exc
     if run_dt.hour not in (0, 12):
         raise ValueError("Sono supportati i run ECMWF 00 e 12 UTC")
-elif now.hour < 10:
+elif now.hour < 9:
     yesterday = (now - timedelta(days=1)).date()
     run_dt = datetime(yesterday.year, yesterday.month, yesterday.day, 12)
-elif now.hour < 22:
+elif now.hour < 21:
     run_dt = datetime(now.year, now.month, now.day, 0)
 else:
     run_dt = datetime(now.year, now.month, now.day, 12)
